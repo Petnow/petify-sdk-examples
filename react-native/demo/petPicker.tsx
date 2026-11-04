@@ -17,9 +17,10 @@ import {petLabel, type DemoPet} from './demoBackend';
 /**
  * Picks a registered pet for a 1:1 verification (`GET /v2/pets`).
  *
- * Only pets that carry fingerprints are listed: the others are leftovers from
- * captures that were never finished (the capture session has to be scoped to a
- * pet before the camera opens), and nothing can be verified against them.
+ * Pets with fingerprints can be verified against. A pet without them is a
+ * registration that never finished (the capture session has to be scoped to a
+ * pet before the camera opens); the example discards its own as they happen,
+ * and lists any it missed — an app killed mid-scan — so they can be deleted.
  *
  * Pets this example registered can be deleted from here. Deleting removes the
  * pet on the server, which takes its fingerprints with it.
@@ -45,7 +46,7 @@ export function PetPickerSheet({
     setPets(null);
     setError(null);
     loadPets()
-      .then(list => setPets(list.filter(pet => pet.hasFingerprint)))
+      .then(list => setPets(list.filter(pet => pet.hasFingerprint || pet.fromExample)))
       .catch(e => setError(String(e)));
   }, [loadPets]);
 
@@ -112,14 +113,14 @@ export function PetPickerSheet({
               return (
                 <Pressable
                   accessibilityRole="button"
-                  disabled={busy}
+                  disabled={busy || !pet.hasFingerprint}
                   onPress={() => onPick(pet)}
                   style={styles.row}>
                   <PetAvatar size={48} />
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowTitle}>{petLabel(pet)}</Text>
                     <Text numberOfLines={1} style={styles.rowSubtitle}>
-                      {pet.id}
+                      {pet.hasFingerprint ? pet.id : 'Unfinished registration'}
                     </Text>
                   </View>
                   {/* Only pets this example registered can be deleted here —

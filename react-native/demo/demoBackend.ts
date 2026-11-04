@@ -62,7 +62,7 @@ export class DemoBackend implements PetnowBackend {
    * replaces it whole, so the tag is written again.
    */
   async setName(petId: string, name: string): Promise<void> {
-    const response = await fetch(this.url(`/v2/pets/${petId}`), {
+    const response = await this.request(this.url(`/v2/pets/${petId}`), {
       method: 'PATCH',
       headers: {...this.headers, 'Content-Type': 'application/json'},
       body: JSON.stringify({metadata: JSON.stringify({...EXAMPLE_TAG, name})}),
@@ -97,7 +97,7 @@ export class DemoBackend implements PetnowBackend {
    * cannot be undone from the API.
    */
   async deletePet(petId: string): Promise<void> {
-    const response = await fetch(this.url(`/v2/pets/${petId}`), {
+    const response = await this.request(this.url(`/v2/pets/${petId}`), {
       method: 'DELETE',
       headers: this.headers,
     });
@@ -106,11 +106,12 @@ export class DemoBackend implements PetnowBackend {
     }
   }
 
-  /** `GET /v2/pets` — the account's pets, newest first as returned by the server. */
+  /** `GET /v2/pets` — the account's pets, sorted newest first here (the API does not order them). */
   async listPets(): Promise<DemoPet[]> {
-    const response = await fetch(this.url('/v2/pets'), {headers: this.headers});
+    const response = await this.request(this.url('/v2/pets'), {headers: this.headers});
     const data = await this.envelope(response);
-    return Array.isArray(data) ? data.map(toDemoPet) : [];
+    const pets = Array.isArray(data) ? data.map(toDemoPet) : [];
+    return pets.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   // -- Upload -----------------------------------------------------------------
@@ -183,6 +184,32 @@ export class DemoBackend implements PetnowBackend {
     return `${this.baseUrl}${path}`;
   }
 
+  /**
+   * `fetch` with a deadline. Without one a dead network leaves the guide
+   * spinning for as long as the OS keeps the socket, which on a phone can be
+   * minutes.
+   */
+  private async request(
+    url: string,
+    timeoutOrInit?: number | RequestInit,
+    maybeInit?: RequestInit,
+  ): Promise<Response> {
+    const timeoutMs = typeof timeoutOrInit === 'number' ? timeoutOrInit : REQUEST_TIMEOUT_MS;
+    const init = (typeof timeoutOrInit === 'number' ? maybeInit : timeoutOrInit) ?? {};
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, {...init, signal: controller.signal});
+    } catch (e) {
+      if (controller.signal.aborted) {
+        throw new Error(`No answer from the server within ${timeoutMs / 1000} s`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async startJob(path: string, sessionId: string): Promise<string> {
     const data = await this.postJson(path, {sessionId});
     return data.jobId as string;
@@ -193,7 +220,7 @@ export class DemoBackend implements PetnowBackend {
     {maxAttempts = 30, intervalMs = 1000} = {},
   ): Promise<Record<string, unknown>> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const response = await fetch(this.url(path), {headers: this.headers});
+      const response = await this.request(this.url(path), {headers: this.headers});
       const data = (await this.envelope(response)) as Record<string, unknown>;
       if (data.status === 'SUCCESS' || data.status === 'FAILED') {
         return data;
@@ -207,7 +234,7 @@ export class DemoBackend implements PetnowBackend {
     path: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const response = await fetch(this.url(path), {
+    const response = await this.request(this.url(path), {
       method: 'POST',
       headers: {...this.headers, 'Content-Type': 'application/json'},
       body: JSON.stringify(body),
@@ -223,7 +250,7 @@ export class DemoBackend implements PetnowBackend {
       type: 'image/jpeg',
       name: filePath.split('/').pop() ?? 'capture.jpg',
     } as unknown as Blob);
-    const response = await fetch(this.url(`${path}?sessionId=${sessionId}`), {
+    const response = await this.request(this.url(`${path}?sessionId=${sessionId}`), UPLOAD_TIMEOUT_MS, {
       method: 'POST',
       headers: this.headers,
       body: form,
@@ -241,13 +268,23 @@ export class DemoBackend implements PetnowBackend {
       json = null;
     }
     if (response.status >= 400) {
+      // `{"errors": [{"code": "PETNOWB2B10014", …}]}` — the code is what the
+      // error-code reference and support can act on.
       const errors = json?.errors;
-      const code = Array.isArray(errors) ? errors[0] : undefined;
-      throw new Error(`HTTP ${response.status}${code ? ` — ${code}` : ''}`);
+      const first = Array.isArray(errors) ? (errors[0] as unknown) : undefined;
+      const code =
+        typeof first === 'string'
+          ? first
+          : (first as {code?: unknown} | undefined)?.code;
+      throw new Error(`HTTP ${response.status}${typeof code === 'string' ? ` ${code}` : ''}`);
     }
     return json?.data;
   }
 }
+
+const REQUEST_TIMEOUT_MS = 15_000;
+/** An image upload on a slow connection takes longer than a JSON call. */
+const UPLOAD_TIMEOUT_MS = 60_000;
 
 /** What `createPet` writes into `metadata`, and `fromExample` looks for. */
 const EXAMPLE_TAG = {createdBy: 'petify-sdk-example'};
@@ -261,6 +298,8 @@ export interface DemoPet {
    * may belong to an account with real pets in it.
    */
   fromExample: boolean;
+  /** ISO 8601, for ordering. */
+  createdAt: string;
   /**
    * False until `:addFingerprints` succeeds. A pet without fingerprints can not
    * be verified or identified against — the record exists because the capture
@@ -283,6 +322,7 @@ function toDemoPet(json: Record<string, unknown>): DemoPet {
     name: typeof name === 'string' && name.length > 0 ? name : undefined,
     species: json.species as string | undefined,
     fromExample: metadata.createdBy === EXAMPLE_TAG.createdBy,
+    createdAt: typeof json.createdAt === 'string' ? json.createdAt : '',
     hasFingerprint: json.hasFingerprint === true,
   };
 }

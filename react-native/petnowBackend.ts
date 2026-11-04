@@ -32,7 +32,7 @@ export interface PetnowVerification {
   score?: number;
 }
 
-/** The five things a capture flow needs from a server. */
+/** The six things a capture flow needs from a server. */
 export interface PetnowBackend {
   /**
    * Registration and verification are scoped to a pet, so your server creates

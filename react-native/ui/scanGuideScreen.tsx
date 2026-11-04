@@ -6,8 +6,8 @@
  * (angle, then light); a cat's guide is a single screen, because the cat flow
  * scans the face rather than the nose.
  *
- * The same guide is also reachable from inside the camera, as the help sheet in
- * `cameraChrome.tsx`.
+ * Inside the camera, the `?` button opens a shorter list of capture tips
+ * (`ScanGuideSheet` in `cameraChrome.tsx`).
  */
 import React from 'react';
 import {

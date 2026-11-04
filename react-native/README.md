@@ -15,13 +15,14 @@ ready engine. They are released with `PetnowPrewarm.release()` once the user is 
 screen. Both are in `App.tsx`, in the effects marked ① and ④.
 
 `captureScreen.tsx` shows "Preparing" until `performanceStats.detectionReadyAtMs` says detection is
-ready (②), scans again on the open camera (③), and logs `engineReused` to the Metro console (⑤) —
-`true` when the prewarm took.
+ready (②), restarts the camera on a new capture session for "Scan again" (③), and logs
+`engineReused` to the Metro console (⑤) — `true` when the engine was already built as the camera
+started, which is what a finished prewarm gives you.
 
 ## Requirements
 
 - Node 18.18+, and the [React Native environment](https://reactnative.dev/docs/set-up-your-environment)
-  for the platforms you build: Xcode 16 + CocoaPods 1.15+, JDK 17 + Android SDK 35
+  for the platforms you build: Xcode 16 + CocoaPods 1.15.2+, JDK 17 + Android SDK 35
 - A device: iOS 16.4+ or Android 9+ (API 28) — the camera does not run in the iOS simulator
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (2.15 or later)
 - A [Petify Console](https://docs.petnow.io/petify/docs/petify-console) account with a payment
@@ -85,9 +86,10 @@ aws codeartifact login --tool npm \
   --region "$AWS_DEFAULT_REGION"
 ```
 
-`--namespace petify` sends only `@petify/*` packages to CodeArtifact; everything else still comes
-from the public npm registry, and your other projects are unaffected. The token lasts 12 hours; log
-in again when `npm install` fails with E401. Then:
+The login writes a `@petify:registry` line and its token to your user `~/.npmrc`. With
+`--namespace petify` only `@petify/*` packages go to CodeArtifact; everything else still comes from
+the public npm registry, in this project and your others. The token lasts 12 hours; log in again
+when `npm install` fails with E401. Then:
 
 ```bash
 npm install
@@ -103,31 +105,36 @@ Put the Secret key from step 1 in `PETIFY_API_KEY`. `.env` is git-ignored.
 
 ## 4. Build and run
 
+Android:
+
 ```bash
 npm run android
 ```
+
+iOS: install the pods, then open `ios/PetnowCameraExample.xcworkspace` once and, under
+**Signing & Capabilities**, choose your team and change the bundle identifier to one you can sign
+(the template's `org.reactjs.native.example.*` is taken). Then:
 
 ```bash
 cd ios && pod install && cd ..
 npm run ios -- --device
 ```
 
-On iOS, open `ios/PetnowCameraExample.xcworkspace` before the first device run and, under
-**Signing & Capabilities**, choose your team and change the bundle identifier to one you can sign
-(the template's `org.reactjs.native.example.*` is taken).
-
 ## The API key and the server
 
-`PETIFY_API_KEY` in `.env` is inlined into the bundle at build time. `.env` is git-ignored;
-`.env.example` is the template. A shell variable wins over the file:
-`PETIFY_API_KEY=... npm run android`. Editing `.env` is enough — `metro.config.js` and
-`android/app/build.gradle` make sure neither cache serves you the previous key.
+`PETIFY_API_KEY` in `.env` is inlined into the bundle by Metro. `.env` is git-ignored;
+`.env.example` is the template. Metro reads it when it starts, so **after editing `.env`, stop
+Metro and start it again** (`npm start -- --reset-cache`, then `npm run android` / `npm run ios`
+in another terminal); `metro.config.js` makes sure the cache does not serve you the previous key. A
+shell variable wins over the file, but only in the terminal that runs Metro:
+`PETIFY_API_KEY=... npm start`.
 
 The example runs against the **production** Petify backend, the one the console issues keys for.
 It runs the whole server flow — create a capture session, upload, then register / identify /
-verify — through `demo/demoBackend.ts`. **A registration here is a real pet in your account**;
-delete it from "See all" on the home screen (the example only offers to delete pets it registered
-itself). Without a key the home screen says so, and the camera does not start.
+verify — through `demo/demoBackend.ts`. **A registration here is a real pet in your account**, and
+counts toward your plan like any other; delete it from "See all" on the home screen (the example
+only offers to delete pets it registered itself, and deletes its own unfinished registrations as
+they happen). Without a key the home screen says so, and the scan buttons stay disabled.
 
 **In your own app, do neither of these.** Anyone with the app binary can read a bundled key, so an
 app carries a **Client key (app)** at most — enough for the SDK, which needs SDK 1.5.0 or later —
@@ -140,12 +147,20 @@ See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/react-native/g
 in the guide.
 
 - **`npm install` fails with E401** — the registry token expired; repeat the login in step 2.
-- **The camera shows a licence error** — the key is wrong or revoked; check it in the Petify Console.
-- **Register, identify or "See all" fail with 403 `PETNOWB2B10014`** — the key is a Client key; this
-  example needs a Secret key (step 1).
+- **"Could not load the pets: HTTP 401 PETNOWB2B10000"** on the home screen — the key is wrong or
+  deleted; check it in the Petify Console, then restart Metro (see
+  [The API key and the server](#the-api-key-and-the-server)).
+- **"HTTP 403 PETNOWB2B10014"** on the home screen or when a scan starts — the key is a Client key;
+  this example needs a Secret key (step 1).
+- **"HTTP 402 PETNOWB2B10011" / "PETNOWB2B10012"** after an identification — identification is not
+  in your plan, or the plan needs choosing; see
+  [Error codes](https://docs.petnow.io/petify/docs/server/api/error-codes).
+- **You fixed the key but nothing changed** — Metro is still running with the old one; restart it.
 - **`pod install` fails with `Encoding::CompatibilityError`** — run `export LANG=en_US.UTF-8` first.
 
 ## License
 
 MIT for the example code. The Petify SDK is licensed separately under your Petify agreement. The
-bundled Material Icons font is Apache-2.0; its licence sits next to it.
+Petify and Petnow names and logos and the photos in `assets/images/` are Petnow's and are not
+covered by the MIT licence; use them only to run this example. The bundled Material Icons font is
+Apache-2.0; its licence sits next to it.

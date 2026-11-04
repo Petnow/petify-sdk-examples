@@ -26,6 +26,7 @@ enum DemoCaptureSessions {
         guard let apiKey = AppConfig.apiKey else { throw Failure.noAPIKey }
         var request = URLRequest(url: URL(string: "https://api.petify.petnow.io/v2/capture-sessions")!)
         request.httpMethod = "POST"
+        request.timeoutInterval = 15 // as on Android; the default leaves the guide spinning for a minute
         request.setValue(apiKey, forHTTPHeaderField: "x-petnow-api-key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: [

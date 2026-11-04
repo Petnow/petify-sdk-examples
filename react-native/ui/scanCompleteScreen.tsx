@@ -34,7 +34,7 @@ export type CaptureSubmit = (
  * identify / verify.
  *
  * Only `species` is a real field on a pet; the name goes into the pet's
- * free-form `metadata` (see `DemoBackend.updateMetadata`), which is where your
+ * free-form `metadata` (see `DemoBackend.setName`), which is where your
  * app would keep its own pet record.
  */
 export interface ProfileDraft {
@@ -146,7 +146,7 @@ export function ScanCompleteScreen({
           busy={busy}
           onPress={busy ? null : outcome ? onDone : canConfirm ? confirm : null}
         />
-        <View style={{height: 10}} />
+        <View style={styles.gap} />
         <PetifySecondaryButton label="Scan Again" onPress={busy ? null : onScanAgain} />
       </View>
 
@@ -163,8 +163,8 @@ function OutcomeCard({outcome}: {outcome: SubmitResult}) {
         {backgroundColor: withAlpha(tone, 0.08), borderColor: withAlpha(tone, 0.25)},
       ]}>
       <Text style={[styles.outcomeTitle, {color: tone}]}>{outcome.title}</Text>
-      {outcome.lines.map(line => (
-        <Text key={line} style={styles.outcomeLine}>
+      {outcome.lines.map((line, index) => (
+        <Text key={index} style={styles.outcomeLine}>
           {line}
         </Text>
       ))}
@@ -217,6 +217,7 @@ const styles = StyleSheet.create({
     fontFamily: Petify.font,
     color: Petify.ink,
   },
+  gap: {height: 10},
   stepRow: {flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12},
   stepText: {color: Petify.inkMuted, fontSize: 14, fontFamily: Petify.font},
   outcome: {borderRadius: 10, borderWidth: 1, padding: 14, marginBottom: 12},

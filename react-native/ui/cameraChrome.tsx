@@ -50,39 +50,35 @@ export function CameraMaskOverlay({
   }
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {/* Geometry depends on the window, so it is computed here; the static
+          parts are in the stylesheet. */}
       <View
-        style={{
-          position: 'absolute',
-          left: width / 2 - radius - scrim,
-          top: centerY - radius - scrim,
-          width: (radius + scrim) * 2,
-          height: (radius + scrim) * 2,
-          borderRadius: radius + scrim,
-          borderWidth: scrim,
-          borderColor: Petify.dimOverlay,
-        }}
+        style={[
+          styles.scrim,
+          {
+            left: width / 2 - radius - scrim,
+            top: centerY - radius - scrim,
+            width: (radius + scrim) * 2,
+            height: (radius + scrim) * 2,
+            borderRadius: radius + scrim,
+            borderWidth: scrim,
+          },
+        ]}
       />
       <View
-        style={{
-          position: 'absolute',
-          left: width / 2 - radius,
-          top: centerY - radius,
-          width: diameter,
-          height: diameter,
-          borderRadius: radius,
-          borderWidth: Petify.maskStrokeWidth,
-          borderColor: Petify.brand,
-        }}
+        style={[
+          styles.ring,
+          {
+            left: width / 2 - radius,
+            top: centerY - radius,
+            width: diameter,
+            height: diameter,
+            borderRadius: radius,
+          },
+        ]}
       />
       {guideMessage ? (
-        <View
-          style={{
-            position: 'absolute',
-            top: centerY + radius + 16,
-            left: 0,
-            right: 0,
-            alignItems: 'center',
-          }}>
+        <View style={[styles.calloutSlot, {top: centerY + radius + 16}]}>
           <CameraCallout message={guideMessage} />
         </View>
       ) : null}
@@ -108,7 +104,7 @@ export function CameraTopBar({
   onTips: () => void;
 }) {
   return (
-    <SafeAreaView style={styles.topBarSafe}>
+    <SafeAreaView>
       <View style={styles.topBar}>
         <RoundButton label="Close" glyph={MaterialIcon.close} onPress={onClose} />
         <RoundButton
@@ -132,7 +128,7 @@ export function CameraControls({
   onSwitchCamera: () => void;
 }) {
   return (
-    <SafeAreaView style={styles.controlsSafe}>
+    <SafeAreaView>
       <View style={styles.controls}>
         {/* Balances the switch button so the label stays centred. */}
         <View style={styles.roundButtonSpacer} />
@@ -224,7 +220,7 @@ export function ScanGuideSheet({
       body: `Hold ${subject} inside the guide, about a palm's width away.`,
     },
     {
-      glyph: MaterialIcon.centerFocusStrong,
+      glyph: MaterialIcon.photoCamera,
       title: 'Hold still',
       body: 'Motion blur is the most common reason a frame is rejected.',
     },
@@ -256,6 +252,13 @@ export function ScanGuideSheet({
 }
 
 const styles = StyleSheet.create({
+  scrim: {position: 'absolute', borderColor: Petify.dimOverlay},
+  ring: {
+    position: 'absolute',
+    borderWidth: Petify.maskStrokeWidth,
+    borderColor: Petify.brand,
+  },
+  calloutSlot: {position: 'absolute', left: 0, right: 0, alignItems: 'center'},
   callout: {
     maxWidth: 360,
     marginHorizontal: 16,
@@ -270,14 +273,12 @@ const styles = StyleSheet.create({
     fontFamily: Petify.fontBold,
     textAlign: 'center',
   },
-  topBarSafe: {},
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  controlsSafe: {},
   controls: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -118,7 +118,7 @@ export default function App(): React.JSX.Element {
   } | null>(null);
   /** The pets shown in the home screen's list card. */
   const [pets, setPets] = useState<DemoPet[] | null>(null);
-  const [petsError, setPetsError] = useState(false);
+  const [petsError, setPetsError] = useState<string | null>(null);
 
   /** Set while a capture is running; holds everything that capture needs. */
   const [capture, setCapture] = useState<{
@@ -128,19 +128,36 @@ export default function App(): React.JSX.Element {
     species: Species;
   } | null>(null);
 
-  /** The home screen lists the account's pets. */
+  /**
+   * A capture start in flight. Set before the first `await`, so a double tap
+   * cannot create two pets; bumped by Back, so a start the user walked away
+   * from does not open the camera on its own when the server answers.
+   */
+  const starting = useRef(false);
+  const attempt = useRef(0);
+  /** Registrations that reached the server; any other example pet is discarded. */
+  const registered = useRef(new Set<string>());
+  /** Set while a capture is being uploaded and run, so Back cannot drop the result. */
+  const submitting = useRef(false);
+
+  /** The account's pets, for "See all". Stable, so the sheet does not refetch on every render. */
+  const listPets = useCallback(
+    () => (backend ? backend.listPets() : Promise.resolve([] as DemoPet[])),
+    [backend],
+  );
+
+  /** The home screen lists the account's registered pets, newest first. */
   const loadPets = useCallback(() => {
     if (!backend) {
       return;
     }
-    backend
-      .listPets()
+    listPets()
       .then(list => {
-        setPets(list);
-        setPetsError(false);
+        setPets(list.filter(pet => pet.hasFingerprint));
+        setPetsError(null);
       })
-      .catch(() => setPetsError(true));
-  }, [backend]);
+      .catch(e => setPetsError(String(e instanceof Error ? e.message : e)));
+  }, [backend, listPets]);
 
   useEffect(loadPets, [loadPets]);
 
@@ -169,8 +186,9 @@ export default function App(): React.JSX.Element {
   //    needs to validate the licence and load the models; the camera then opens
   //    on a ready engine. Fire and forget: it resolves once the request is
   //    taken, not when the models are ready, and an invalid key still surfaces
-  //    on the camera, not here. The species is known by now (the popup asked),
-  //    so name it; when your flow does not know it, leave it out.
+  //    on the camera, not here. It needs the key `usePetnowCamera` stores, hence
+  //    `ready`. The species is known by now (the popup asked), so name it; when
+  //    your flow does not know it, leave it out.
   const flowSpecies = flow?.species;
   useEffect(() => {
     if (ready && flowSpecies) {
@@ -181,7 +199,9 @@ export default function App(): React.JSX.Element {
   // ④ Release once the user is back on the home screen — not when the guide
   //    goes away, which also happens on the way into the camera and would throw
   //    away the engine the camera is about to take. Optional: the SDK also
-  //    releases under memory pressure.
+  //    releases under memory pressure. (A camera closing in the same moment may
+  //    hand its engine back just after this; the SDK then keeps it for the next
+  //    camera until memory runs low, which is harmless.)
   const atHome = !flow && !capture;
   const leftHome = useRef(false);
   useEffect(() => {
@@ -220,14 +240,15 @@ export default function App(): React.JSX.Element {
     if (granted === PermissionsAndroid.RESULTS.GRANTED) {
       return true;
     }
-    Alert.alert(
-      'Camera permission needed',
-      'Enable it in Settings to run the capture.',
-      [
+    if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+      // Android no longer asks; only the app's settings page can grant it.
+      Alert.alert('Camera permission needed', 'Allow camera access in Settings to scan.', [
         {text: 'Cancel', style: 'cancel'},
         {text: 'Settings', onPress: () => Linking.openSettings()},
-      ],
-    );
+      ]);
+    } else {
+      Alert.alert('Camera permission needed', 'The scan needs the camera.');
+    }
     return false;
   };
 
@@ -256,41 +277,83 @@ export default function App(): React.JSX.Element {
     });
   };
 
+  /**
+   * Deletes a pet this example created whose registration never completed —
+   * the user backed out, the scan stopped, or the session could not be opened.
+   * The capture session has to be scoped to a pet before the camera opens, so
+   * without this every abandoned registration leaves an empty pet behind.
+   */
+  const discardPet = useCallback(
+    (petId: string) => {
+      backend?.deletePet(petId).catch(() => {}).finally(loadPets);
+    },
+    [backend, loadPets],
+  );
+
   const startCapture = async (
     forPurpose: DetectionPurpose,
     forSpecies: Species,
     target: DemoPet | null,
   ) => {
-    if (!(await requestCamera())) {
+    if (starting.current) {
       return;
     }
-    if (!backend || !ready) {
-      Alert.alert('SDK not ready', `Camera state: ${camera.state.status}`);
-      return;
-    }
-
-    // The session id must come from `POST /v2/capture-sessions` — the SDK
-    // rejects anything that is not a valid UUID, and the server ties the
-    // uploaded images to it.
+    starting.current = true;
+    const token = ++attempt.current;
     setBusy(true);
+    let createdPet: string | null = null;
     try {
+      if (!(await requestCamera())) {
+        return;
+      }
+      if (!backend || !ready) {
+        Alert.alert('SDK not ready', `Camera state: ${camera.state.status}`);
+        return;
+      }
+      // The session id must come from `POST /v2/capture-sessions` — the SDK
+      // rejects anything that is not a valid UUID, and the server ties the
+      // uploaded images to it.
+      if (forPurpose === 'PET_PROFILE_REGISTRATION') {
+        // Registration needs the pet to exist first; the session is scoped to
+        // it (otherwise the server answers PETNOWB2B20011).
+        createdPet = await backend.createPet(forSpecies);
+      }
       const petId =
-        forPurpose === 'PET_PROFILE_REGISTRATION'
-          ? // Registration needs the pet to exist first; the session is scoped
-            // to it (otherwise the server answers PETNOWB2B20011).
-            await backend.createPet(forSpecies)
-          : forPurpose === 'PET_VERIFICATION'
-            ? target!.id
-            : null;
+        createdPet ?? (forPurpose === 'PET_VERIFICATION' ? target!.id : null);
       const sessionId = await newSession(backend, forPurpose, petId, forSpecies);
+      if (token !== attempt.current) {
+        return; // the user left the guide meanwhile; `finally` cleans up
+      }
       setCapture({sessionId, petId, purpose: forPurpose, species: forSpecies});
       setFlow(null);
+      createdPet = null; // the camera owns it now
     } catch (e) {
-      Alert.alert('Could not start the session', String(e));
+      if (token === attempt.current) {
+        Alert.alert('Could not start the session', String(e instanceof Error ? e.message : e));
+      }
     } finally {
+      if (createdPet) {
+        discardPet(createdPet);
+      }
+      starting.current = false;
       setBusy(false);
     }
   };
+
+  /** Leaves the camera, discarding a registration that never reached the server. */
+  const closeCapture = useCallback(() => {
+    const petId = capture?.petId;
+    if (
+      capture?.purpose === 'PET_PROFILE_REGISTRATION' &&
+      petId &&
+      !registered.current.has(petId)
+    ) {
+      discardPet(petId);
+    } else {
+      loadPets();
+    }
+    setCapture(null);
+  }, [capture, discardPet, loadPets]);
 
   // ------------------------------------------------------------------- submit
 
@@ -304,6 +367,7 @@ export default function App(): React.JSX.Element {
     forPurpose: DetectionPurpose,
     petId: string | null,
   ): Promise<SubmitResult> => {
+    submitting.current = true;
     try {
       onStep('Uploading images…');
       await server.uploadCapture(sessionId, result);
@@ -312,6 +376,9 @@ export default function App(): React.JSX.Element {
         case 'PET_PROFILE_REGISTRATION': {
           onStep('Registering the pet…');
           const status = await server.addFingerprints(petId!, sessionId);
+          if (status === 'SUCCESS') {
+            registered.current.add(petId!);
+          }
           if (status === 'SUCCESS' && profile.name) {
             onStep('Saving the name…');
             await saveName(server, petId!, profile.name);
@@ -337,7 +404,7 @@ export default function App(): React.JSX.Element {
             title: `${found.length} candidate(s)`,
             lines: found
               .slice(0, 5)
-              .map(c => `${c.petId}   score ${c.score?.toFixed(3) ?? '—'}`),
+              .map(c => `${c.petId}   score ${c.score ?? '—'}`),
             note:
               'A score is a hint, not a verdict. Confirm the top candidate with ' +
               'a 1:1 verify.',
@@ -352,14 +419,20 @@ export default function App(): React.JSX.Element {
             lines: [
               `petId  ${petId}`,
               `isMatch  ${check.isMatch}`,
-              `score  ${check.score?.toFixed(3) ?? '—'}`,
+              `score  ${check.score ?? '—'}`,
             ],
             note: 'The server decision is the answer — not the score.',
           };
         }
       }
     } catch (e) {
-      return {ok: false, title: 'Request failed', lines: [String(e)]};
+      return {
+        ok: false,
+        title: 'Request failed',
+        lines: [String(e instanceof Error ? e.message : e)],
+      };
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -370,7 +443,6 @@ export default function App(): React.JSX.Element {
   const saveName = async (server: DemoBackend, petId: string, name: string) => {
     try {
       await server.setName(petId, name);
-      loadPets();
     } catch {
       // The registration itself succeeded; a missing name is only cosmetic.
     }
@@ -392,15 +464,19 @@ export default function App(): React.JSX.Element {
    */
   const goBack = useCallback((): boolean => {
     if (capture) {
-      setCapture(null);
+      if (!submitting.current) {
+        closeCapture();
+      }
       return true;
     }
     if (!flow) {
       return false;
     }
+    // Any Back abandons a start still waiting on the server.
+    attempt.current += 1;
     setFlow(flow.guideStep > 0 ? {...flow, guideStep: flow.guideStep - 1} : null);
     return true;
-  }, [capture, flow]);
+  }, [capture, flow, closeCapture]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', goBack);
@@ -426,7 +502,7 @@ export default function App(): React.JSX.Element {
         onNewSession={() =>
           newSession(backend, capture.purpose, capture.petId, capture.species)
         }
-        onClose={() => setCapture(null)}
+        onClose={closeCapture}
       />
     );
   }
@@ -460,7 +536,7 @@ export default function App(): React.JSX.Element {
         }
       : !ready
         ? {
-            message: 'Validating the license…',
+            message: 'Starting the SDK…',
             tone: Petify.main,
             icon: MaterialIcon.hourglassEmpty,
           }
@@ -482,12 +558,12 @@ export default function App(): React.JSX.Element {
               <ActionCard
                 title={'Identify\na pet'}
                 glyph={MaterialIcon.qrCodeScanner}
-                onPress={() => askSpecies('PET_IDENTIFICATION')}
+                onPress={ready ? () => askSpecies('PET_IDENTIFICATION') : null}
               />
               <ActionCard
                 title={'Register\na pet'}
                 glyph={MaterialIcon.photoCamera}
-                onPress={() => askSpecies('PET_PROFILE_REGISTRATION')}
+                onPress={ready ? () => askSpecies('PET_PROFILE_REGISTRATION') : null}
               />
             </View>
           </Card>
@@ -506,7 +582,7 @@ export default function App(): React.JSX.Element {
             {!backend ? (
               <CardMessage text="Add an API key to list your pets." />
             ) : petsError ? (
-              <CardMessage text="Could not load the pets." />
+              <CardMessage text={`Could not load the pets: ${petsError}`} />
             ) : pets === null ? (
               <CardMessage text="Loading…" />
             ) : petRows.length === 0 ? (
@@ -531,7 +607,7 @@ export default function App(): React.JSX.Element {
               {TIPS.map(tip => (
                 <View key={tip.title} style={styles.tip}>
                   <Icon glyph={tip.glyph} size={28} color={Petify.main} />
-                  <View style={{flex: 1}}>
+                  <View style={styles.tipCopy}>
                     <Text style={styles.tipTitle}>{tip.title}</Text>
                     <Text style={styles.tipBody}>{tip.body}</Text>
                   </View>
@@ -569,7 +645,7 @@ export default function App(): React.JSX.Element {
       {backend ? (
         <PetPickerSheet
           visible={pickerOpen}
-          loadPets={() => backend.listPets()}
+          loadPets={listPets}
           onDelete={deletePet}
           onPick={pet => {
             setPickerOpen(false);
@@ -590,6 +666,7 @@ const styles = StyleSheet.create({
   actionRow: {flexDirection: 'row', gap: 16, paddingHorizontal: 16, paddingBottom: 20},
   tips: {paddingHorizontal: 16, paddingBottom: 20, gap: 16},
   tip: {flexDirection: 'row', alignItems: 'flex-start', gap: 12},
+  tipCopy: {flex: 1},
   tipTitle: {color: Petify.ink, fontSize: 15, fontFamily: Petify.fontMedium},
   tipBody: {
     marginTop: 2,

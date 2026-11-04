@@ -23,15 +23,11 @@ export const Petify = {
   /** Bottom control bar. */
   controlBar: '#050608',
 
-  /** Sheets and floating dark panels. */
-  sheet: '#1A1D21',
-
   /** Dim outside the mask circle — rgba(10,11,12,0.55). */
   dimOverlay: 'rgba(10,11,12,0.55)',
 
-  /** Control-bar icon buttons — white 15% idle, brand 30% active. */
+  /** Control-bar icon buttons — white 15%. */
   controlIconBg: 'rgba(255,255,255,0.15)',
-  controlIconActive: 'rgba(0,51,181,0.30)',
 
   /** Guide callout under the circle — brand 80%. */
   calloutBg: 'rgba(0,51,181,0.80)',
@@ -42,9 +38,7 @@ export const Petify = {
    * uses these.
    */
   main: '#FF592C',
-  mainPressed: '#CE4926',
   mainTint: '#FFF3F1',
-  sub: '#4389E5',
   /** The action cards on the home screen. */
   actionCard: '#5476CD',
   appBg: '#F3F3F4',
@@ -112,7 +106,7 @@ export function PetifySecondaryButton({
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress ?? undefined}
-      style={[styles.secondary, disabled && {opacity: 0.4}]}>
+      style={[styles.secondary, disabled && styles.disabled]}>
       <Text style={styles.secondaryLabel}>{label}</Text>
     </Pressable>
   );
@@ -221,6 +215,7 @@ const styles = StyleSheet.create({
   primaryDisabled: {backgroundColor: withAlpha(Petify.brand, 0.35)},
   primaryLabel: {color: '#FFFFFF', fontSize: 16, fontFamily: Petify.fontMedium},
   primaryLabelDisabled: {color: 'rgba(255,255,255,0.7)'},
+  disabled: {opacity: 0.4},
   secondary: {
     height: 56,
     borderRadius: 10,
@@ -310,12 +305,20 @@ export function ActionCard({
 }: {
   title: string;
   glyph: string;
-  onPress: () => void;
+  /** Null while the SDK is not ready: the card shows but does nothing. */
+  onPress: (() => void) | null;
 }) {
   return (
     <Pressable
-      style={({pressed}) => [appStyles.action, pressed && appStyles.actionPressed]}
-      onPress={onPress}>
+      accessibilityRole="button"
+      accessibilityState={{disabled: !onPress}}
+      disabled={!onPress}
+      style={({pressed}) => [
+        appStyles.action,
+        pressed && appStyles.actionPressed,
+        !onPress && appStyles.actionDisabled,
+      ]}
+      onPress={onPress ?? undefined}>
       <Text style={appStyles.actionTitle}>{title}</Text>
       <View style={appStyles.actionGlyph}>
         <Icon glyph={glyph} size={64} color="rgba(255,255,255,0.28)" />
@@ -345,7 +348,7 @@ export function ListRow({
       ]}
       onPress={onPress}>
       <PetAvatar size={44} />
-      <View style={{flex: 1}}>
+      <View style={appStyles.rowCopy}>
         <Text style={appStyles.rowTitle} numberOfLines={1}>
           {title}
         </Text>
@@ -455,6 +458,7 @@ const appStyles = StyleSheet.create({
     padding: 16,
   },
   actionPressed: {opacity: 0.9},
+  actionDisabled: {opacity: 0.5},
   actionTitle: {
     color: '#FFFFFF',
     fontSize: 18,
@@ -471,6 +475,7 @@ const appStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   rowLine: {borderBottomWidth: 1, borderBottomColor: Petify.surfaceMuted},
+  rowCopy: {flex: 1},
   rowTitle: {color: Petify.ink, fontSize: 16, fontFamily: Petify.fontMedium},
   rowSubtitle: {marginTop: 2, color: Petify.inkMuted, fontSize: 13, fontFamily: Petify.font},
   cardMessage: {

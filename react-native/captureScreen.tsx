@@ -17,7 +17,7 @@ import {
   ScanGuideSheet,
   type BannerTone,
 } from './ui/cameraChrome';
-import {Petify} from './ui/petifyUi';
+import {Petify, PetifyPrimaryButton, PetifySecondaryButton} from './ui/petifyUi';
 import {
   ScanCompleteScreen,
   type ProfileDraft,
@@ -64,7 +64,8 @@ export function CaptureScreen({
   const [liveConfig, setLiveConfig] = useState(config);
   const [status, setStatus] = useState<DetectionStatus | null>(null);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  /** A retake could not get a new session; the camera stays down until one is. */
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [result, setResult] = useState<CameraResult | null>(null);
   const [newSessionPending, setNewSessionPending] = useState(false);
   /**
@@ -77,7 +78,12 @@ export function CaptureScreen({
   const [tipsOpen, setTipsOpen] = useState(false);
 
   const isCat = liveConfig.species === 'CAT';
-  const failed = status?.type === 'failed';
+  /**
+   * A setup failure — a refused key, a missing permission, a camera that would
+   * not open — rather than a frame the SDK rejected. Those arrive as
+   * `'Unexpected'`, with the native message on `rawReason`.
+   */
+  const setupFailed = status?.type === 'failed' && status.reason === 'Unexpected';
 
   // ---------------------------------------------------------------- guidance
 
@@ -88,16 +94,14 @@ export function CaptureScreen({
    */
   // ② Guide from detection feedback, not from the preview appearing.
   const maskVisible = detectionReady && status?.type === 'noObject';
-  const guide =
-    maskVisible && !error ? "Place your pet's face inside the circle" : null;
+  const guide = maskVisible ? "Place your pet's face inside the circle" : null;
 
   const statusLabel = (() => {
-    if (error) {
-      return error;
+    if (setupFailed) {
+      return 'Not scanning';
     }
     if (!detectionReady) {
-      // A failure this early is a setup failure (see the banner), not a frame.
-      return failed ? 'Not scanning' : 'Preparing';
+      return 'Preparing';
     }
     switch (status?.type) {
       case undefined:
@@ -113,7 +117,9 @@ export function CaptureScreen({
 
   /** The floating banner above the controls. */
   const banner: {message: string; tone: BannerTone} | null = (() => {
-    if (error) {
+    // Before the models are ready, only a setup failure is worth showing; a
+    // rejected face-only frame is not the user's to fix yet.
+    if (!detectionReady && !setupFailed) {
       return null;
     }
     switch (status?.type) {
@@ -131,13 +137,11 @@ export function CaptureScreen({
           tone: 'success',
         };
       case 'failed':
-        // Setup failures (a refused key, a missing permission, a camera that
-        // would not open) arrive as `'Unexpected'`, with the native message on
-        // `rawReason`. Show it: "something unexpected happened" helps nobody
-        // fix a key.
+        // For a setup failure show what the SDK said: "something unexpected
+        // happened" helps nobody fix a key.
         return {
           message:
-            status.reason === 'Unexpected' && status.rawReason
+            setupFailed && status.rawReason
               ? status.rawReason
               : (REASON_MESSAGES[status.reason] ?? 'Please try again'),
           tone: 'error',
@@ -158,23 +162,37 @@ export function CaptureScreen({
    * a live view, so `<CameraView>` is keyed by it: replacing the id remounts the
    * view and the SDK comes back up on the new session.
    */
-  // ③ Scan again. The camera screen stays; only the session behind it changes.
+  // ③ Scan again: a new capture session, and the camera restarts on it.
   const scanAgain = async () => {
     setResult(null);
     setStatus(null);
     setProgress(0);
-    setError(null);
+    setSessionError(null);
     setNewSessionPending(true);
     setDetectionReady(false);
     try {
       const sessionId = await onNewSession();
       setLiveConfig(current => ({...current, captureSessionId: sessionId}));
     } catch (e) {
-      setError(`Could not start a new capture session: ${e}`);
+      // Never fall back to the old session: it may already back a server job.
+      setSessionError(
+        `Could not start a new capture session: ${e instanceof Error ? e.message : e}`,
+      );
     } finally {
       setNewSessionPending(false);
     }
   };
+
+  if (sessionError) {
+    return (
+      <View style={styles.sessionError}>
+        <Text style={styles.sessionErrorText}>{sessionError}</Text>
+        <PetifyPrimaryButton label="Try again" onPress={scanAgain} />
+        <View style={styles.gap} />
+        <PetifySecondaryButton label="Close" onPress={onClose} />
+      </View>
+    );
+  }
 
   if (result) {
     return (
@@ -202,17 +220,16 @@ export function CaptureScreen({
           style={StyleSheet.absoluteFill}
           {...liveConfig}
           onDetectionProgress={setProgress}
-          onDetectionStatus={next => {
-            setStatus(next);
-            setError(null);
-          }}
+          onDetectionStatus={setStatus}
           // Delivered a few times a second; the first one that carries
           // `detectionReadyAtMs` is the moment detection can start.
           onPerformanceStats={stats => {
             if (stats.detectionReadyAtMs != null && !detectionReady) {
               setDetectionReady(true);
-              // ⑤ engineReused: the models were ready when the camera started —
-              // a prewarm took. Logged for you to check in the Metro console.
+              // ⑤ engineReused: the engine was already built when the camera
+              // started — after a finished prewarm, or one an earlier camera
+              // left. False if the camera had to build or wait for it. Logged
+              // for you to check in the Metro console.
               console.info(
                 `[Petnow] detection ready at ${stats.detectionReadyAtMs} ms, ` +
                   `engineReused=${stats.engineReused}`,
@@ -225,9 +242,9 @@ export function CaptureScreen({
 
       <CameraMaskOverlay visible={maskVisible} guideMessage={guide} />
 
-      {/* The SDK needs a moment to load its models. A failure is shown in the
-          banner instead, so a refused key does not hide behind "Preparing". */}
-      {!detectionReady && !failed && !error ? (
+      {/* The SDK needs a moment to load its models. A setup failure is shown
+          in the banner instead, so a refused key does not hide behind it. */}
+      {!detectionReady && !setupFailed ? (
         <View style={styles.preparing} pointerEvents="none">
           <Text style={styles.preparingText}>Preparing the camera…</Text>
         </View>
@@ -274,4 +291,18 @@ const styles = StyleSheet.create({
   top: {position: 'absolute', left: 0, right: 0, top: 0},
   bottom: {position: 'absolute', left: 0, right: 0, bottom: 0},
   bannerSlot: {paddingHorizontal: 24, paddingBottom: 12},
+  sessionError: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: Petify.surface,
+  },
+  sessionErrorText: {
+    marginBottom: 20,
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: Petify.font,
+    color: Petify.ink,
+  },
+  gap: {height: 10},
 });
