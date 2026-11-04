@@ -72,7 +72,10 @@ struct CameraScreen: View {
             onCaptured(CaptureSummary(
                 fingerprintImages: fingerprintImages,
                 appearanceImageCount: appearanceImages.count,
-                // ⑤ engineReused tells you the prewarm took: the camera found the models ready.
+                // ⑤ engineReused: the engine was already built when the camera started —
+                //    true after a finished prewarm or when an earlier camera left one;
+                //    false when this camera built it (on iOS, also when it joined a
+                //    prewarm still building).
                 engineReused: phases.engineReused ?? false,
                 firstFrameMs: phases.firstFrameAtMs
             ))

@@ -2,7 +2,8 @@
 //   cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
 
 // Defaults, overridden by Secrets.xcconfig when it exists. Without it the app still
-// builds, and the home screen says PETNOW_API_KEY is missing.
+// builds, and the home screen says PETNOW_API_KEY is missing. The bundle ID is only
+// a placeholder so the project opens; set one your team can sign in Secrets.xcconfig.
 EXAMPLE_BUNDLE_ID = com.example.petify.prewarm
 EXAMPLE_TEAM_ID =
 PETNOW_API_KEY =

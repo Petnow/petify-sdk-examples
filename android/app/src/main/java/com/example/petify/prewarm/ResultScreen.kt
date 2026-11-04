@@ -1,6 +1,7 @@
 package com.example.petify.prewarm
 
 import android.graphics.BitmapFactory
+import android.os.Parcelable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,14 +19,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
+import kotlinx.parcelize.Parcelize
 import java.io.File
 
+@Parcelize // saved with the back stack (MainActivity.kt)
 data class CaptureSummary(
     val fingerprintImages: List<File>,
     val appearanceImageCount: Int,
     val engineReused: Boolean,
     val firstFrameMs: Long?,
-)
+) : Parcelable
 
 @Composable
 fun ResultScreen(summary: CaptureSummary, onDone: () -> Unit) {
@@ -39,7 +42,7 @@ fun ResultScreen(summary: CaptureSummary, onDone: () -> Unit) {
         Text("Result", style = MaterialTheme.typography.headlineSmall)
         Text("Nose images: ${summary.fingerprintImages.size}")
         Text("Appearance images: ${summary.appearanceImageCount}")
-        Text("Models were ready: ${if (summary.engineReused) "Yes — prewarm took" else "No"}")
+        Text("Engine ready at camera start: ${if (summary.engineReused) "Yes" else "No"}")
         summary.firstFrameMs?.let { Text("First processed frame: $it ms") }
         Text(
             "Upload the images to your server, which sends them to Petify with the capture session ID.",

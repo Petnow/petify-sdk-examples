@@ -23,6 +23,10 @@ object DemoCaptureSessions {
         val connection = URL("https://api.petify.petnow.io/v2/capture-sessions")
             .openConnection() as HttpURLConnection
         try {
+            // HttpURLConnection waits forever by default; a stalled network should end
+            // in an error the guide screen can offer to retry.
+            connection.connectTimeout = 15_000
+            connection.readTimeout = 15_000
             connection.requestMethod = "POST"
             connection.doOutput = true
             connection.setRequestProperty("x-petnow-api-key", apiKey)

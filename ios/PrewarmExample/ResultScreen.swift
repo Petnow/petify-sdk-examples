@@ -20,7 +20,7 @@ struct ResultScreen: View {
                 LabeledContent("Appearance images", value: "\(summary.appearanceImageCount)")
             }
             Section {
-                LabeledContent("Models were ready", value: summary.engineReused ? "Yes — prewarm took" : "No")
+                LabeledContent("Engine ready at camera start", value: summary.engineReused ? "Yes" : "No")
                 if let ms = summary.firstFrameMs {
                     LabeledContent("First processed frame", value: "\(ms) ms")
                 }

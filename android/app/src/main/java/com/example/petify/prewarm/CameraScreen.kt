@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +63,8 @@ fun CameraScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // The listener below is set once; read the latest callback, not the one from the first composition.
+    val currentOnCaptured by rememberUpdatedState(onCaptured)
     // HomeScreen does not start the flow without a key.
     val controller = remember { CameraController(context.applicationContext, AppConfig.license!!, scope) }
     val state by controller.state.collectAsState()
@@ -96,12 +99,14 @@ fun CameraScreen(
                 when (result) {
                     is CameraResult.Success -> {
                         val phases = controller.performanceStats.value.phases
-                        onCaptured(
+                        currentOnCaptured(
                             CaptureSummary(
                                 fingerprintImages = result.fingerprintImageFiles,
                                 appearanceImageCount = result.appearanceImageFiles.size,
-                                // ⑤ engineReused tells you the prewarm took: the camera found
-                                //    the engine ready.
+                                // ⑤ engineReused: the engine was already built when the camera started —
+                                //    true after a finished prewarm or when an earlier camera left one;
+                                //    false when this camera built it (on iOS, also when it joined a
+                                //    prewarm still building).
                                 engineReused = phases.engineReused ?: false,
                                 firstFrameMs = phases.firstFrameAtMs,
                             ),

@@ -46,7 +46,8 @@ Set the values from the CodeArtifact popup under these names:
 | iOS SDK Repository | `PETNOW_IOS_SDK_REPOSITORY` |
 
 The popup's **Copy All** button uses other names (`SDK_CONFIG_AWS_REGION`, `SDK_CONFIG_CODEARTIFACT_DOMAIN`, …)
-and no `export`, so rename the values as above rather than pasting them as they are.
+and no `export`, so rename the values as above rather than pasting them as they are. The two AWS keys
+may instead be stored with `aws configure`; the script only checks the region and the `PETNOW_*` values.
 
 ```bash
 # So an AWS profile or session already in your shell does not override the Console keys.
@@ -77,8 +78,12 @@ resolve `petnow.ui`. `registries.json` is git-ignored.
 cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
 ```
 
-Edit `Config/Secrets.xcconfig`: `PETNOW_API_KEY` (the Client key from step 1), `EXAMPLE_TEAM_ID`, and a
-bundle ID you can sign. The file is git-ignored.
+Edit `Config/Secrets.xcconfig` (git-ignored):
+
+- `PETNOW_API_KEY` — the Client key from step 1.
+- `EXAMPLE_TEAM_ID` — your Apple Developer team ID.
+- `EXAMPLE_BUNDLE_ID` — change the placeholder to a bundle ID your team can sign. Automatic signing
+  fails for an ID another team has already registered.
 
 ## 4. Build and run
 
@@ -100,4 +105,7 @@ See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/ios/getting-st
   Run `./scripts/setup-registry.sh` again, then *File → Packages → Reset Package Caches*. Make sure you
   opened `PrewarmExample.xcworkspace`, not the `.xcodeproj`.
 - **"Set PETNOW_API_KEY …" on the home screen** — `Config/Secrets.xcconfig` is missing or still has the placeholder.
-- **"Could not create a capture session: HTTP 401"** — the API Key is wrong or revoked.
+- **"Could not create a capture session: Petify API returned HTTP 401. Check PETNOW_API_KEY."** on the
+  guide screen — the API Key is wrong or revoked. Put a valid Client key in `Config/Secrets.xcconfig` and rebuild.
+- **Signing fails ("The app identifier … cannot be registered to your development team", or no team
+  selected)** — set `EXAMPLE_TEAM_ID` and an `EXAMPLE_BUNDLE_ID` of your own in `Config/Secrets.xcconfig` (step 3).

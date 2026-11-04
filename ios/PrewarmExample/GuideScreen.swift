@@ -6,6 +6,8 @@ import PetnowUI
 struct GuideScreen: View {
     let onStartCamera: (UUID) -> Void
     @State private var session: Result<UUID, Error>?
+    /// "Try again" bumps this, which runs the `.task(id:)` below once more.
+    @State private var attempt = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -29,11 +31,15 @@ struct GuideScreen: View {
             //    which happens on the way into the camera, while the prewarm must carry on.
             Task { await CameraController.prewarm(licenseInfo: license) }
         }
-        .task {
+        .task(id: attempt) {
             // Your server issues the capture session; this example asks for one itself.
             // Coming back to this screen asks for a new one — fine for a demo.
+            session = nil
             do { session = .success(try await DemoCaptureSessions.create()) }
-            catch { session = .failure(error) }
+            catch {
+                guard !Task.isCancelled else { return }   // the screen left; nothing to report
+                session = .failure(error)
+            }
         }
     }
 
@@ -45,9 +51,15 @@ struct GuideScreen: View {
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)
         case .failure(let error):
-            Text("Could not create a capture session: \(error.localizedDescription)")
-                .font(.footnote)
-                .foregroundStyle(.red)
+            VStack(spacing: 12) {
+                Text("Could not create a capture session: \(error.localizedDescription)")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Try again") { attempt += 1 }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+            }
         case nil:
             ProgressView("Creating a capture session…")
                 .frame(maxWidth: .infinity)

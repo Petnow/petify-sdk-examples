@@ -6,6 +6,11 @@ pluginManagement {
     }
 }
 
+// Stop here with a clear message: without the variables Gradle would fail later on
+// every dependency with an error that does not say what is missing.
+fun requireEnv(name: String): String = System.getenv(name)?.takeIf { it.isNotBlank() }
+    ?: error("$name is not set — see README.md step 2 (and start Android Studio from that shell)")
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -16,10 +21,10 @@ dependencyResolutionManagement {
         // come from the Petify Console credentials (see README.md).
         maven {
             name = "CodeArtifact"
-            url = uri(System.getenv("CODEARTIFACT_URL") ?: "YOUR_REPOSITORY_URL")
+            url = uri(requireEnv("CODEARTIFACT_URL"))
             credentials {
                 username = "aws"
-                password = System.getenv("CODEARTIFACT_AUTH_TOKEN") ?: "YOUR_AUTH_TOKEN"
+                password = requireEnv("CODEARTIFACT_AUTH_TOKEN")
             }
         }
     }

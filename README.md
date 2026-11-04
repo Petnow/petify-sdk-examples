@@ -9,7 +9,7 @@ Home ──▶ Capture guide ──▶ Camera ──▶ Result
             │ ① prewarm       │ ② guide from detection feedback
             │                 │ ③ retry without restarting the camera
             ◀──────── ④ release when the user leaves the flow
-                              ⑤ check that the prewarm took (engineReused)
+                              ⑤ engine ready at camera start? (engineReused)
 ```
 
 | Folder | Platform | SDK package |
@@ -44,7 +44,9 @@ again instead of reopening the screen.
 the user goes back to where the flow started — not when the guide screen disappears, which also happens
 on the way into the camera. It is optional: the SDK also releases them under memory pressure.
 
-**⑤ Check that it worked.** `phases.engineReused` is `true` when the camera found the models ready.
+**⑤ Check that it worked.** `phases.engineReused` is `true` when the engine was already built when the
+camera started: after a finished prewarm, or when an earlier camera left it. It is `false` when the camera
+built the engine itself — on iOS also when it joined a prewarm that was still building.
 
 See the [SDK 1.6.0 release notes](https://docs.petnow.io/petify/docs/sdk/changelog) for the full list of changes.
 
@@ -83,7 +85,7 @@ Once the CodeArtifact variables from step 2 of the platform README are exported:
 # iOS — details in ios/README.md
 cd ios
 ./scripts/setup-registry.sh
-cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig   # set PETNOW_API_KEY
+cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig   # set PETNOW_API_KEY, your team ID and a bundle ID you can sign
 open PrewarmExample.xcworkspace                              # run on your iPhone
 ```
 
@@ -107,15 +109,15 @@ npm run android        # or: cd ios && pod install && cd .. && npm run ios -- --
 ## Capture sessions
 
 Every capture belongs to a capture session that **your server** creates with the Petify Server API and
-hands to the app as an ID. So that the examples run without a backend, they create it themselves:
-the iOS and Android apps open an identification session with their Client key
-(`DemoCaptureSessions` — one of the few calls a Client key may make), and the React Native app runs
-the whole flow with a Secret key (`demo/demoBackend.ts`). Both are marked *example only*: in
-production the server creates sessions and makes every other Server API call, and an app never holds
-a Secret key.
+hands to the app as an ID. So that the examples run without a backend, they create it themselves.
+The iOS and Android apps create a session for identification with their Client key
+(`DemoCaptureSessions` — one of the few calls a Client key may make) and stop at capture: nothing
+is identified and no pet is stored. The React Native app runs the whole flow with a Secret key
+(`demo/demoBackend.ts`). Both are marked *example only*: in production the server creates sessions
+and makes every other Server API call, and an app never holds a Secret key.
 
 All three run against the **production** backend, where Petify Console keys are issued. The iOS and
-Android apps create nothing in your account; **a registration in the React Native app is a real pet**
+Android apps add no pets to your account; **a registration in the React Native app is a real pet**
 (delete it from "See all" on its home screen).
 
 ## Security notes
@@ -123,6 +125,10 @@ Android apps create nothing in your account; **a registration in the React Nativ
 - No keys, tokens or account identifiers are committed. `Secrets.xcconfig`, `local.properties`,
   `react-native/.env` and the Swift registry configuration are git-ignored; the repository only
   contains `*.example` templates.
+- Generated lockfiles are git-ignored too. `react-native/package-lock.json` records the CodeArtifact
+  URLs it resolved from, which contain your AWS account ID, domain and region;
+  `react-native/ios/Podfile.lock` and the iOS workspace's `Package.resolved` are left to your machine
+  along with it. Commit your own only if your policy allows registry URLs in the repository.
 - The examples compile the API key into the app for convenience. Anyone with the app binary can read it
   back out. See [API key security](https://docs.petnow.io/petify/docs/sdk/ios/getting-started#api-key-security) in the docs
   before you ship.
@@ -131,5 +137,8 @@ Android apps create nothing in your account; **a registration in the React Nativ
 ## License
 
 The example code is released under the [MIT License](LICENSE). The Petify SDK it depends on is **not**
-part of this repository and is licensed separately under your Petify agreement. The React Native app
-bundles the Roboto and Material Icons fonts (Apache-2.0, licences next to them).
+part of this repository and is licensed separately under your Petify agreement.
+
+The Petify and Petnow names and logos, and the photos in `react-native/assets/images/`, belong to
+Petnow and are **not** licensed under MIT: they may be used only to run these examples. The React
+Native app bundles the Material Icons font (Apache-2.0, licence next to it). See [NOTICE](NOTICE).

@@ -1,6 +1,7 @@
 package com.example.petify.prewarm
 
 import android.os.Bundle
+import android.os.Parcelable
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -9,8 +10,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.toMutableStateList
 import io.petnow.ui.CameraController
+import kotlinx.parcelize.Parcelize
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
@@ -22,16 +26,22 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-sealed interface Route {
-    data object Home : Route
-    data object Guide : Route
-    data class Camera(val captureSessionId: UUID) : Route
-    data class Result(val summary: CaptureSummary) : Route
+// Parcelable so the back stack survives the activity being recreated (see App()).
+sealed interface Route : Parcelable {
+    @Parcelize data object Home : Route
+    @Parcelize data object Guide : Route
+    @Parcelize data class Camera(val captureSessionId: UUID) : Route
+    @Parcelize data class Result(val summary: CaptureSummary) : Route
 }
 
 @Composable
 private fun App() {
-    val backStack = remember { mutableStateListOf<Route>(Route.Home) }
+    // rememberSaveable, not remember: dark mode, font size, locale or a window resize
+    // recreates the activity, and a plain remember would drop the user back home
+    // mid-flow (and run the release below).
+    val backStack = rememberSaveable(
+        saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() }),
+    ) { mutableStateListOf<Route>(Route.Home) }
     val atHome = backStack.size == 1
     val goHome = { backStack.removeRange(1, backStack.size) }
 
@@ -55,7 +65,10 @@ private fun App() {
             captureSessionId = route.captureSessionId,
             // The result replaces the camera: its capture session is used up, so
             // nothing should lead back to it.
-            onCaptured = { backStack[backStack.lastIndex] = Route.Result(it) },
+            onCaptured = {
+                // Only if the camera is still on top: a late callback must not replace another screen.
+                if (backStack.last() is Route.Camera) backStack[backStack.lastIndex] = Route.Result(it)
+            },
             onClose = { backStack.removeAt(backStack.lastIndex) },
         )
         is Route.Result -> ResultScreen(

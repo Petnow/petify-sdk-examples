@@ -78,8 +78,9 @@ export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token \
 ```
 
 `settings.gradle.kts` already has the guide's CodeArtifact repository block and reads these two
-variables; `app/build.gradle.kts` declares `implementation("io.petnow:ui:1.6.0")`. The token lasts
-12 hours; run the second command again when Gradle fails with 401.
+variables (Gradle stops with "CODEARTIFACT_URL is not set" when they are missing);
+`app/build.gradle.kts` declares `implementation("io.petnow:ui:1.6.0")`. The token lasts 12 hours;
+run the second command again when Gradle fails with 401.
 
 ## 3. Set your API Key
 
@@ -88,7 +89,8 @@ cp local.properties.example local.properties
 ```
 
 Edit `local.properties`: `petnow.apiKey` (the Client key from step 1). Uncomment `sdk.dir` only if
-`ANDROID_HOME` is not set. The file is git-ignored.
+`ANDROID_HOME` is not set. The file is git-ignored. Without `petnow.apiKey` the build falls back to a
+`PETNOW_API_KEY` environment variable (handy on CI).
 
 ## 4. Build and run
 
@@ -103,6 +105,11 @@ sees `CODEARTIFACT_URL` and `CODEARTIFACT_AUTH_TOKEN`.
 
 See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/android/getting-started#troubleshooting) in the guide.
 
-- **`Could not resolve io.petnow:ui:1.6.0` / 401** — the token expired or the variables are not set
-  in this shell; repeat step 2.
+- **`CODEARTIFACT_URL is not set` (or `CODEARTIFACT_AUTH_TOKEN is not set`)** — this shell, or the
+  Android Studio you sync from, does not have the step 2 variables. Export them and run again.
+- **`Could not resolve io.petnow:ui:1.6.0` / 401** — the token expired (12 hours); repeat step 2.
+  Android Studio keeps the environment it was started with, so an already open Android Studio still
+  has the expired token: quit it and start it again from the refreshed shell.
 - **"Set petnow.apiKey …" on the home screen** — `local.properties` is missing the key; rebuild after adding it.
+- **"Could not create a capture session: Petify API returned HTTP 401. Check petnow.apiKey."** on the
+  guide screen — the API Key is wrong or revoked. Put a valid Client key in `local.properties` and rebuild.
