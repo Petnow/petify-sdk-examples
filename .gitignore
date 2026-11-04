@@ -1,0 +1,26 @@
+# Secrets — never commit these
+ios/Config/Secrets.xcconfig
+android/local.properties
+react-native/.env
+.env
+*.netrc
+
+# CodeArtifact registry configuration (contains your registry URL)
+**/xcshareddata/swiftpm/configuration/registries.json
+**/.swiftpm/configuration/registries.json
+
+# Build output and caches
+.DS_Store
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.gradle/
+.idea/
+*.iml
+.kotlin/
+captures/
+node_modules/
+Pods/
+vendor/bundle/
+*.jsbundle
