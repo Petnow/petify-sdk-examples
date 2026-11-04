@@ -1,0 +1,31 @@
+name: PrewarmExample
+options:
+  deploymentTarget:
+    iOS: "16.4"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Example.xcconfig
+  Release: Config/Example.xcconfig
+packages:
+  PetnowUI:
+    url: petnow.ui        # Swift package registry identifier (AWS CodeArtifact)
+    exactVersion: 1.6.0
+targets:
+  PrewarmExample:
+    type: application
+    platform: iOS
+    sources:
+      - PrewarmExample
+    dependencies:
+      - package: PetnowUI
+        product: PetnowUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(EXAMPLE_BUNDLE_ID)
+        DEVELOPMENT_TEAM: $(EXAMPLE_TEAM_ID)
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: PrewarmExample/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"

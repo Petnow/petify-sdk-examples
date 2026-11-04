@@ -1,0 +1,3 @@
+# Copy to local.properties (git-ignored) and fill in.
+sdk.dir=/path/to/Android/sdk
+petnow.apiKey=YOUR_PETNOW_API_KEY

@@ -1,0 +1,3 @@
+// Shared build settings. Your own values go in Secrets.xcconfig (not committed):
+//   cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
+#include? "Secrets.xcconfig"
