@@ -22,8 +22,25 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>ExampleServerHost</key>
+	<string>$(EXAMPLE_SERVER_HOST)</string>
+	<key>ExampleServerToken</key>
+	<string>$(EXAMPLE_SERVER_TOKEN)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Server mode talks plain HTTP to the example server on your computer.
+		     NSAllowsLocalNetworking allows that for .local and unqualified host names only;
+		     every other host still needs HTTPS (unlike NSAllowsArbitraryLoads). Loads to an
+		     IP address are not subject to ATS at all: checked on the iOS 26.5 simulator, where
+		     http://<LAN IP>:port and http://<name>.local:port load with or without this key
+		     and http://example.com is refused with it. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>The camera is used to capture your dog's nose print.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Server mode sends the captured images to the example server on your computer.</string>
 	<key>PetnowAPIKey</key>
 	<string>$(PETNOW_API_KEY)</string>
 	<key>UILaunchScreen</key>

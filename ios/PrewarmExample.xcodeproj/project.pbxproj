@@ -12,6 +12,8 @@
 		23072613037F1F048AD47C50 /* PetnowUI in Frameworks */ = {isa = PBXBuildFile; productRef = 8E593D4E3E5416D74148D5D2 /* PetnowUI */; };
 		2ACC012D4ADFB1A0BB01FF94 /* DemoCaptureSessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961638802C1115F39749C8B9 /* DemoCaptureSessions.swift */; };
 		32DD76A5A7986017313E5F4D /* GuideScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24AB93F05F07905FA07145EC /* GuideScreen.swift */; };
+		4D0362DA59E96E28A792B5F0 /* CaptureSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56F47295D1C51514F8956112 /* CaptureSession.swift */; };
+		A32C0E06C1D4D2D95E92ED7D /* ExampleServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D705656F960A8D48EDEAC9 /* ExampleServer.swift */; };
 		A7671FFADED7D6E3B56884FD /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C5B3C17B3745B6A64A743C8 /* AppConfig.swift */; };
 		D32B73F3C268FAAF7C290819 /* PrewarmExampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D7AF477D4B6EAA0D48373EE /* PrewarmExampleApp.swift */; };
 		D665220CFB74AC4561596278 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408CA8556D00F971F3D6040D /* HomeScreen.swift */; };
@@ -22,10 +24,12 @@
 		2D7AF477D4B6EAA0D48373EE /* PrewarmExampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrewarmExampleApp.swift; sourceTree = "<group>"; };
 		2DED36DC41373BFCC85C6E2B /* CameraScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraScreen.swift; sourceTree = "<group>"; };
 		408CA8556D00F971F3D6040D /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
+		56F47295D1C51514F8956112 /* CaptureSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSession.swift; sourceTree = "<group>"; };
 		8C5B3C17B3745B6A64A743C8 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		94C264EE858CF3429BAFCF27 /* PrewarmExample.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PrewarmExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		961638802C1115F39749C8B9 /* DemoCaptureSessions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoCaptureSessions.swift; sourceTree = "<group>"; };
 		9700B297E4E33613619AABC9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B7D705656F960A8D48EDEAC9 /* ExampleServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleServer.swift; sourceTree = "<group>"; };
 		C9C0182217EB6B436BAD22F9 /* ResultScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultScreen.swift; sourceTree = "<group>"; };
 		FAB3871FD292030EBFCFE392 /* Example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Example.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -72,7 +76,9 @@
 			children = (
 				8C5B3C17B3745B6A64A743C8 /* AppConfig.swift */,
 				2DED36DC41373BFCC85C6E2B /* CameraScreen.swift */,
+				56F47295D1C51514F8956112 /* CaptureSession.swift */,
 				961638802C1115F39749C8B9 /* DemoCaptureSessions.swift */,
+				B7D705656F960A8D48EDEAC9 /* ExampleServer.swift */,
 				24AB93F05F07905FA07145EC /* GuideScreen.swift */,
 				408CA8556D00F971F3D6040D /* HomeScreen.swift */,
 				9700B297E4E33613619AABC9 /* Info.plist */,
@@ -148,7 +154,9 @@
 			files = (
 				A7671FFADED7D6E3B56884FD /* AppConfig.swift in Sources */,
 				0739A099EF94AB46D699254F /* CameraScreen.swift in Sources */,
+				4D0362DA59E96E28A792B5F0 /* CaptureSession.swift in Sources */,
 				2ACC012D4ADFB1A0BB01FF94 /* DemoCaptureSessions.swift in Sources */,
+				A32C0E06C1D4D2D95E92ED7D /* ExampleServer.swift in Sources */,
 				32DD76A5A7986017313E5F4D /* GuideScreen.swift in Sources */,
 				D665220CFB74AC4561596278 /* HomeScreen.swift in Sources */,
 				D32B73F3C268FAAF7C290819 /* PrewarmExampleApp.swift in Sources */,

@@ -7,14 +7,15 @@ struct CameraScreen: View {
     @State private var showRetry = false
     @State private var startError: String?
     @State private var showStartError = false
-    private let captureSessionId: UUID
+    private let session: CaptureSession
     private let onCaptured: (CaptureSummary) -> Void
 
-    init(captureSessionId: UUID, onCaptured: @escaping (CaptureSummary) -> Void) {
-        self.captureSessionId = captureSessionId
+    init(session: CaptureSession, onCaptured: @escaping (CaptureSummary) -> Void) {
+        self.session = session
         self.onCaptured = onCaptured
         _controller = StateObject(wrappedValue: CameraController(
-            configuration: DetectionConfiguration(species: .dog, purpose: .petIdentification),
+            // Dog only. For cats, use .cat here and send "CAT" when the session is created.
+            configuration: DetectionConfiguration(species: .dog, purpose: session.purpose.detection),
             licenseInfo: AppConfig.license!   // HomeScreen does not start the flow without a key
         ))
     }
@@ -53,7 +54,7 @@ struct CameraScreen: View {
     private func start() async {
         do {
             try await controller.initializeCamera(initialPosition: .back,
-                                                  captureSessionId: captureSessionId) { result in
+                                                  captureSessionId: session.id) { result in
                 Task { @MainActor in finish(result) }
             }
             controller.startDetection()
@@ -71,7 +72,7 @@ struct CameraScreen: View {
             let phases = controller.performanceStats.phases
             onCaptured(CaptureSummary(
                 fingerprintImages: fingerprintImages,
-                appearanceImageCount: appearanceImages.count,
+                appearanceImages: appearanceImages,
                 // ⑤ engineReused: the engine was already built when the camera started —
                 //    true after a finished prewarm or when an earlier camera left one;
                 //    false when this camera built it (on iOS, also when it joined a

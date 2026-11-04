@@ -4,12 +4,9 @@ Copyright (c) 2026 Petnow Inc.
 The example source code in this repository is licensed under the MIT License
 (see LICENSE). The following are not covered by that license:
 
-- The Petify and Petnow names and logos, and the photos in
-  react-native/assets/images/, belong to Petnow Inc. They are not licensed
-  under the MIT License and may be used only to run these examples.
+- The Petify and Petnow names and logos belong to Petnow Inc. They are not
+  licensed under the MIT License.
 
-- The Petify SDK the examples depend on is not part of this repository. It is
-  downloaded separately and licensed under your Petify agreement.
-
-- The Material Icons font bundled with the React Native app is licensed under
-  the Apache License 2.0; its license file sits next to the font.
+- The Petify SDK the examples depend on (including the Flutter package unzipped
+  into flutter/vendor/) is not part of this repository. It is downloaded
+  separately and licensed under your Petify agreement.

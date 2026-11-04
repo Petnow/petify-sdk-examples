@@ -33,10 +33,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required for pet biometric capture.</string>
-	<key>UIAppFonts</key>
-	<array>
-		<string>MaterialIcons-Regular.otf</string>
-	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Connects to the example server on your local network.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

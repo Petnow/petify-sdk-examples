@@ -1,6 +1,8 @@
 # Android example (Jetpack Compose)
 
 Home → capture guide (**prewarm**) → camera → result, using the Petify Android SDK (`io.petnow:ui:1.6.0`).
+It runs in **camera-only mode** with just a Client key; with the [example server](../server/README.md)
+running it can also register and identify pets ([below](#register-and-identify-example-server)).
 The SDK is not in this repository: Gradle downloads it from Petnow's AWS CodeArtifact repository with
 your own credentials, exactly as the [Android Getting Started](https://docs.petnow.io/petify/docs/sdk/android/getting-started)
 guide describes.
@@ -10,7 +12,10 @@ guide describes.
 | `GuideScreen.kt` | ① `CameraController.prewarm(context, license)` when the guide appears |
 | `CameraScreen.kt` | `CameraView` in `AndroidView`, ② guidance after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
 | `MainActivity.kt` | ④ `CameraController.releasePrewarmed()` when the back stack returns home; the result replaces the used-up camera |
-| `DemoCaptureSessions.kt` | creates a capture session — **example only**, your server does this |
+| `CaptureSession.kt` | creates the capture session: Petify directly in camera-only mode, the example server in server mode |
+| `DemoCaptureSessions.kt` | camera-only mode: an identification session with the Client key — **example only**, your server does this |
+| `ExampleServer.kt` | server mode: session, image uploads, register/identify, and deleting the pet of an abandoned registration |
+| `ResultScreen.kt` | ⑤ `engineReused`; in server mode **Send** uploads the images and shows the outcome |
 
 ## Requirements
 
@@ -26,9 +31,9 @@ In **Integration → API & SDK** ([guide](https://docs.petnow.io/petify/docs/pet
 had these under **My Page**):
 
 1. **API Key Management → Create New API Key**, key type **Client key (app)**. This is the SDK licence
-   (`LicenseInfo(apiKey = …)`). A Client key is enough here: the app only uses the SDK and creates a
-   capture session. Client keys need SDK 1.5.0 or later. Keep Secret keys (server) out of app code. The
-   key is shown only once.
+   (`LicenseInfo(apiKey = …)`). **Apps hold a Client key (app) only; the Secret key (server) lives only in the
+   example server.** A Client key is enough for the app: it uses the SDK and creates an identification
+   capture session. Client keys need SDK 1.5.0 or later. The key is shown only once.
 2. **AWS CodeArtifact Key Management → Create New Key.** These credentials download the SDK. The popup
    shows them **only once** — save them before you close it.
 
@@ -90,7 +95,8 @@ cp local.properties.example local.properties
 
 Edit `local.properties`: `petnow.apiKey` (the Client key from step 1). Uncomment `sdk.dir` only if
 `ANDROID_HOME` is not set. The file is git-ignored. Without `petnow.apiKey` the build falls back to a
-`PETNOW_API_KEY` environment variable (handy on CI).
+`PETNOW_API_KEY` environment variable (handy on CI). `example.serverUrl` and `example.serverToken` are
+optional; leave them commented out for camera-only mode (see [Register and identify](#register-and-identify-example-server)).
 
 ## 4. Build and run
 
@@ -100,6 +106,31 @@ Edit `local.properties`: `petnow.apiKey` (the Client key from step 1). Uncomment
 
 To use Android Studio, start it from the same shell (`open -a "Android Studio" .` on macOS) so it
 sees `CODEARTIFACT_URL` and `CODEARTIFACT_AUTH_TOKEN`.
+
+## Register and identify (example server)
+
+Optional. Registering a pet needs the Secret key, so the app asks the [example server](../server/README.md)
+on your computer instead. Apps hold a Client key (app) only; the Secret key (server) lives only in the
+example server. Start the server (see its README), then add to `local.properties` and rebuild:
+
+```properties
+example.serverUrl=http://192.168.0.10:8787
+example.serverToken=<token the server printed>
+```
+
+- `example.serverUrl` — one of the LAN URLs the server prints.
+- `example.serverToken` — the server's token. The app sends it as `Authorization: Bearer …` and never
+  shows or logs it.
+
+Without them the build falls back to `EXAMPLE_SERVER_URL` and `EXAMPLE_SERVER_TOKEN` environment variables.
+With both set, **Register a pet** is enabled on Home, and the result screen has a **Send** button that
+uploads the images and shows the registered pet ID or the top candidates. Leaving a registration without
+a successful register deletes the pet the server created for it. The phone and the computer must be on
+the same Wi-Fi.
+
+Android blocks plain HTTP by default. The build writes a network security config that allows it to the
+host of `example.serverUrl` only (see `app/build.gradle.kts`), in debug and release builds alike; without
+a server URL it allows no plain HTTP at all.
 
 ## Troubleshooting
 
@@ -113,3 +144,9 @@ See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/android/gettin
 - **"Set petnow.apiKey …" on the home screen** — `local.properties` is missing the key; rebuild after adding it.
 - **"Could not create a capture session: Petify API returned HTTP 401. Check petnow.apiKey."** on the
   guide screen — the API Key is wrong or revoked. Put a valid Client key in `local.properties` and rebuild.
+- **`HTTP 401 unauthorized`** after Send or on the guide screen in server mode — `example.serverToken`
+  does not match the server's token (a generated token changes at every server start).
+- **`CLEARTEXT communication to … not permitted`** — the server's address changed since the last build;
+  update `example.serverUrl` and rebuild.
+- **The guide screen times out in server mode** — the phone cannot reach the server: check the address and
+  that both are on the same Wi-Fi.

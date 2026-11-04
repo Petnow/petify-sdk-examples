@@ -4,8 +4,9 @@ import PetnowUI
 /// The screen before the camera: the user reads it for a few seconds, which is
 /// exactly the time prewarm needs.
 struct GuideScreen: View {
-    let onStartCamera: (UUID) -> Void
-    @State private var session: Result<UUID, Error>?
+    let purpose: Purpose
+    let onStartCamera: (CaptureSession) -> Void
+    @State private var session: Result<CaptureSession, Error>?
     /// "Try again" bumps this, which runs the `.task(id:)` below once more.
     @State private var attempt = 0
 
@@ -32,10 +33,10 @@ struct GuideScreen: View {
             Task { await CameraController.prewarm(licenseInfo: license) }
         }
         .task(id: attempt) {
-            // Your server issues the capture session; this example asks for one itself.
+            // Camera-only mode asks Petify for one itself; server mode asks the example server.
             // Coming back to this screen asks for a new one — fine for a demo.
             session = nil
-            do { session = .success(try await DemoCaptureSessions.create()) }
+            do { session = .success(try await CaptureSession.create(for: purpose)) }
             catch {
                 guard !Task.isCancelled else { return }   // the screen left; nothing to report
                 session = .failure(error)
@@ -45,8 +46,8 @@ struct GuideScreen: View {
 
     @ViewBuilder private var startButton: some View {
         switch session {
-        case .success(let id):
-            Button("Open camera") { onStartCamera(id) }
+        case .success(let session):
+            Button("Open camera") { onStartCamera(session) }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)

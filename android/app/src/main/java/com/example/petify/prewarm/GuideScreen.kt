@@ -24,16 +24,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.petnow.ui.CameraController
 import kotlinx.coroutines.CancellationException
-import java.util.UUID
 
 /**
  * The screen before the camera: the user reads it for a few seconds, which is
  * exactly the time prewarm needs.
  */
 @Composable
-fun GuideScreen(onOpenCamera: (UUID) -> Unit) {
+fun GuideScreen(purpose: Purpose, onOpenCamera: (CaptureSession) -> Unit) {
     val context = LocalContext.current
-    var session by remember { mutableStateOf<Result<UUID>?>(null) }
+    var session by remember { mutableStateOf<Result<CaptureSession>?>(null) }
     // "Try again" bumps this to request a capture session once more.
     var attempt by remember { mutableIntStateOf(0) }
 
@@ -48,11 +47,11 @@ fun GuideScreen(onOpenCamera: (UUID) -> Unit) {
 
     LaunchedEffect(attempt) {
         session = null
-        // Your server issues the capture session; this example asks for one itself.
+        // Camera-only mode asks Petify for one itself; server mode asks the example server.
         // Not runCatching: it would also catch the CancellationException that stops
         // this coroutine when the screen leaves.
         session = try {
-            Result.success(DemoCaptureSessions.create())
+            Result.success(CaptureSession.create(purpose))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -1,6 +1,8 @@
 # iOS example (SwiftUI)
 
 Home → capture guide (**prewarm**) → camera → result, using the Petify iOS SDK (`petnow.ui`) 1.6.0.
+It runs in **camera-only mode** with just a Client key; with the [example server](../server/README.md)
+running it can also register and identify pets ([below](#register-and-identify-example-server)).
 The SDK is not in this repository: you download it from Petnow's AWS CodeArtifact registry with your
 own credentials, exactly as the [iOS Getting Started](https://docs.petnow.io/petify/docs/sdk/ios/getting-started)
 guide describes.
@@ -10,7 +12,10 @@ guide describes.
 | `PrewarmExample/GuideScreen.swift` | ① `CameraController.prewarm(licenseInfo:)` in `onAppear` |
 | `PrewarmExample/CameraScreen.swift` | ② guidance from `detectionStatus` after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
 | `PrewarmExample/PrewarmExampleApp.swift` | ④ `CameraController.releasePrewarmed()` when the navigation path returns home |
-| `PrewarmExample/DemoCaptureSessions.swift` | creates a capture session — **example only**, your server does this |
+| `PrewarmExample/CaptureSession.swift` | creates the capture session: Petify directly in camera-only mode, the example server in server mode |
+| `PrewarmExample/DemoCaptureSessions.swift` | camera-only mode: an identification session with the Client key — **example only**, your server does this |
+| `PrewarmExample/ExampleServer.swift` | server mode: session, image uploads, register/identify, and deleting the pet of an abandoned registration |
+| `PrewarmExample/ResultScreen.swift` | ⑤ `engineReused`; in server mode **Send** uploads the images and shows the outcome |
 
 ## Requirements
 
@@ -26,9 +31,9 @@ In **Integration → API & SDK** ([guide](https://docs.petnow.io/petify/docs/pet
 had these under **My Page**):
 
 1. **API Key Management → Create New API Key**, key type **Client key (app)**. This is the SDK licence
-   (`LicenseInfo(apiKey:)`). A Client key is enough here: the app only uses the SDK and creates a capture
-   session. Client keys need SDK 1.5.0 or later. Keep Secret keys (server) out of app code. The key is
-   shown only once.
+   (`LicenseInfo(apiKey:)`). **Apps hold a Client key (app) only; the Secret key (server) lives only in the
+   example server.** A Client key is enough for the app: it uses the SDK and creates an identification
+   capture session. Client keys need SDK 1.5.0 or later. The key is shown only once.
 2. **AWS CodeArtifact Key Management → Create New Key.** These credentials download the SDK. The popup
    shows them **only once** — save them before you close it.
 
@@ -84,6 +89,8 @@ Edit `Config/Secrets.xcconfig` (git-ignored):
 - `EXAMPLE_TEAM_ID` — your Apple Developer team ID.
 - `EXAMPLE_BUNDLE_ID` — change the placeholder to a bundle ID your team can sign. Automatic signing
   fails for an ID another team has already registered.
+- `EXAMPLE_SERVER_HOST`, `EXAMPLE_SERVER_TOKEN` — optional, leave them commented out for camera-only mode
+  (see [Register and identify](#register-and-identify-example-server)).
 
 ## 4. Build and run
 
@@ -97,6 +104,28 @@ navigator shows it). Select your iPhone and run.
 `PrewarmExample.xcodeproj` is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen);
 you only need XcodeGen if you change `project.yml`.
 
+## Register and identify (example server)
+
+Optional. Registering a pet needs the Secret key, so the app asks the [example server](../server/README.md)
+on your computer instead. Apps hold a Client key (app) only; the Secret key (server) lives only in the
+example server. Start the server (see its README), then add to `Config/Secrets.xcconfig` and rebuild:
+
+```
+EXAMPLE_SERVER_HOST = 192.168.0.10:8787
+EXAMPLE_SERVER_TOKEN = <token the server printed>
+```
+
+- `EXAMPLE_SERVER_HOST` — one of the LAN addresses the server prints, **host and port only**: xcconfig
+  reads `//` as a comment, so the app adds `http://` itself.
+- `EXAMPLE_SERVER_TOKEN` — the server's token. The app sends it as `Authorization: Bearer …` and never
+  shows or logs it.
+
+With both set, **Register a pet** is enabled on Home, and the result screen has a **Send** button that
+uploads the images and shows the registered pet ID or the top candidates. Leaving a registration without
+a successful register deletes the pet the server created for it. The iPhone and the computer must be on
+the same Wi-Fi; allow **Local Network** access when iOS asks. Plain HTTP to a LAN address is allowed by
+`NSAllowsLocalNetworking` in `Info.plist` (no `NSAllowsArbitraryLoads`).
+
 ## Troubleshooting
 
 See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/ios/getting-started#troubleshooting) in the guide.
@@ -107,5 +136,9 @@ See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/ios/getting-st
 - **"Set PETNOW_API_KEY …" on the home screen** — `Config/Secrets.xcconfig` is missing or still has the placeholder.
 - **"Could not create a capture session: Petify API returned HTTP 401. Check PETNOW_API_KEY."** on the
   guide screen — the API Key is wrong or revoked. Put a valid Client key in `Config/Secrets.xcconfig` and rebuild.
+- **`HTTP 401 unauthorized`** after Send or on the guide screen in server mode — `EXAMPLE_SERVER_TOKEN`
+  does not match the server's token (a generated token changes at every server start).
+- **The guide screen times out in server mode** — the iPhone cannot reach the server: check the address,
+  that both are on the same Wi-Fi, and *Settings → Privacy & Security → Local Network* for this app.
 - **Signing fails ("The app identifier … cannot be registered to your development team", or no team
   selected)** — set `EXAMPLE_TEAM_ID` and an `EXAMPLE_BUNDLE_ID` of your own in `Config/Secrets.xcconfig` (step 3).

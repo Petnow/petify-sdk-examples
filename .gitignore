@@ -30,3 +30,4 @@ node_modules/
 Pods/
 vendor/bundle/
 *.jsbundle
+server/.env

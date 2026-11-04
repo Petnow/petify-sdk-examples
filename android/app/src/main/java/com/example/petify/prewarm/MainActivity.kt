@@ -15,7 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.toMutableStateList
 import io.petnow.ui.CameraController
 import kotlinx.parcelize.Parcelize
-import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,9 +28,9 @@ class MainActivity : ComponentActivity() {
 // Parcelable so the back stack survives the activity being recreated (see App()).
 sealed interface Route : Parcelable {
     @Parcelize data object Home : Route
-    @Parcelize data object Guide : Route
-    @Parcelize data class Camera(val captureSessionId: UUID) : Route
-    @Parcelize data class Result(val summary: CaptureSummary) : Route
+    @Parcelize data class Guide(val purpose: Purpose) : Route
+    @Parcelize data class Camera(val session: CaptureSession) : Route
+    @Parcelize data class Result(val session: CaptureSession, val summary: CaptureSummary) : Route
 }
 
 @Composable
@@ -55,23 +54,28 @@ private fun App() {
     //    camera, and releasing there destroys the engine the camera is about to take.
     //    Releasing is optional — the SDK also lets go when the system trims memory.
     LaunchedEffect(atHome) {
-        if (atHome) CameraController.releasePrewarmed()
+        if (!atHome) return@LaunchedEffect
+        CameraController.releasePrewarmed()
+        // Server mode: back home from a registration that did not register (Back, Close,
+        // Done before Send, or a failed register) — delete the pet the server created for it.
+        ExampleServer.abandonOpenRegistrations()
     }
 
     when (val route = backStack.last()) {
-        Route.Home -> HomeScreen(onStart = { backStack.add(Route.Guide) })
-        Route.Guide -> GuideScreen(onOpenCamera = { backStack.add(Route.Camera(it)) })
+        Route.Home -> HomeScreen(onStart = { backStack.add(Route.Guide(it)) })
+        is Route.Guide -> GuideScreen(route.purpose, onOpenCamera = { backStack.add(Route.Camera(it)) })
         is Route.Camera -> CameraScreen(
-            captureSessionId = route.captureSessionId,
+            session = route.session,
             // The result replaces the camera: its capture session is used up, so
             // nothing should lead back to it.
             onCaptured = {
                 // Only if the camera is still on top: a late callback must not replace another screen.
-                if (backStack.last() is Route.Camera) backStack[backStack.lastIndex] = Route.Result(it)
+                if (backStack.last() is Route.Camera) backStack[backStack.lastIndex] = Route.Result(route.session, it)
             },
             onClose = { backStack.removeAt(backStack.lastIndex) },
         )
         is Route.Result -> ResultScreen(
+            session = route.session,
             summary = route.summary,
             onDone = goHome,
         )

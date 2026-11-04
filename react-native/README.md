@@ -1,23 +1,29 @@
-# @petify/react-native-camera-ui — example
+# React Native example
 
-A complete capture flow on React Native: the SDK's camera view, the guide messages in
-`petnowGuidance.ts`, and the server calls an integration needs in `petnowBackend.ts`.
+Home → capture guide (**prewarm**) → camera → result, using the Petify React Native SDK
+(`@petify/react-native-camera-ui`) 1.6.0. The same four screens as the iOS and Android examples.
 
-The screens: home → which animal → the capture guide → the camera → the scan result, for the three
-things the SDK does — register, identify and verify a pet. Only the camera is the SDK; the guide is
-the app's own, and it is here because framing is what decides whether a scan succeeds.
+| File | What it shows |
+| --- | --- |
+| `screens/GuideScreen.tsx` | ① `PetnowPrewarm.start()` when the guide appears; gets the capture session |
+| `screens/CameraScreen.tsx` | `<CameraView>`, ② "Preparing" until `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry on the open camera with `startDetection()`, ⑤ `engineReused` (also logged to the Metro console) |
+| `App.tsx` | ④ `PetnowPrewarm.release()` when the user is back on Home; camera permission; pausing in the background |
+| `screens/ResultScreen.tsx` | the captured images; in server mode, sends them to the example server |
+| `api.ts` | every network call: the camera-only session, and the example server's API |
+| `petnowGuidance.ts` | what to tell the user for each reason the SDK rejects a frame |
 
-## SDK 1.6.0: prewarm
+The app holds a **Client key (app)** only. It runs in one of two modes:
 
-The models the camera needs are prepared with `PetnowPrewarm.start()` as soon as the user picks
-"Identify" or "Register" (or a pet to verify), while they read the guide, so the camera opens on a
-ready engine. They are released with `PetnowPrewarm.release()` once the user is back on the home
-screen. Both are in `App.tsx`, in the effects marked ① and ④.
+- **Camera-only** (the default): the app opens an identification session with the Client key
+  (`POST /v2/capture-sessions`, which a Client key may call), runs the camera and shows what it
+  captured. Nothing is uploaded, and "Register a pet" stays disabled.
+- **Server mode**: with the [example server](../server/README.md) running, the server creates the
+  sessions and the result screen sends the images to it to **register** or **identify** a pet. The
+  Secret key stays in the server. This is how your app should work: it talks to *your* server,
+  and your server to Petify.
 
-`captureScreen.tsx` shows "Preparing" until `performanceStats.detectionReadyAtMs` says detection is
-ready (②), restarts the camera on a new capture session for "Scan again" (③), and logs
-`engineReused` to the Metro console (⑤) — `true` when the engine was already built as the camera
-started, which is what a finished prewarm gives you.
+Dog only. For cats, pass `species: "CAT"` when creating the session and `species="CAT"` to
+`<CameraView>`.
 
 ## Requirements
 
@@ -41,11 +47,10 @@ Run the commands below from this folder (`cd react-native`).
 In **Integration → API & SDK** ([guide](https://docs.petnow.io/petify/docs/petify-console); older
 consoles had these under **My Page**):
 
-1. **API Key Management → Create New API Key**, key type **Secret key (server)**. The SDK uses it as
-   its licence (`usePetnowCamera({apiKey})`), and the example's demo backend calls the Server API
-   with it to register, identify and verify — which a Client key may not do. That is fine for a
-   sample on your own device and wrong for an app you ship: see
-   [The API key and the server](#the-api-key-and-the-server). The key is shown only once.
+1. **API Key Management → Create New API Key**, key type **Client key (app)**. This is the SDK
+   licence (`usePetnowCamera({apiKey})`). A Client key is enough here: the app only uses the SDK and
+   creates a capture session. Client keys need SDK 1.5.0 or later. Keep Secret keys (server) out of
+   app code — the example server is where the Secret key goes. The key is shown only once.
 2. **AWS CodeArtifact Key Management → Create New Key.** These credentials download the SDK. The
    popup shows them **only once** — save them before you close it.
 
@@ -101,7 +106,17 @@ npm install
 cp .env.example .env
 ```
 
-Put the Secret key from step 1 in `PETIFY_API_KEY`. `.env` is git-ignored.
+Put the Client key from step 1 in `PETIFY_API_KEY`. `.env` is git-ignored.
+
+For server mode, start the [example server](../server/README.md) and set `EXAMPLE_SERVER_URL` (the
+`http://<your computer's LAN address>:8787` it prints at start; the phone must be on the same
+network) and `EXAMPLE_SERVER_TOKEN`. Leave both empty for camera-only mode.
+
+The values are inlined into the bundle by Metro, which reads `.env` when it starts: **after editing
+`.env`, stop Metro and start it again** (`npm start -- --reset-cache`, then `npm run android` /
+`npm run ios` in another terminal). `metro.config.js` makes sure the cache does not serve you the
+previous values. A shell variable wins over the file, but only in the terminal that runs Metro:
+`PETIFY_API_KEY=... npm start`.
 
 ## 4. Build and run
 
@@ -120,47 +135,28 @@ cd ios && pod install && cd ..
 npm run ios -- --device
 ```
 
-## The API key and the server
-
-`PETIFY_API_KEY` in `.env` is inlined into the bundle by Metro. `.env` is git-ignored;
-`.env.example` is the template. Metro reads it when it starts, so **after editing `.env`, stop
-Metro and start it again** (`npm start -- --reset-cache`, then `npm run android` / `npm run ios`
-in another terminal); `metro.config.js` makes sure the cache does not serve you the previous key. A
-shell variable wins over the file, but only in the terminal that runs Metro:
-`PETIFY_API_KEY=... npm start`.
-
-The example runs against the **production** Petify backend, the one the console issues keys for.
-It runs the whole server flow — create a capture session, upload, then register / identify /
-verify — through `demo/demoBackend.ts`. **A registration here is a real pet in your account**, and
-counts toward your plan like any other; delete it from "See all" on the home screen (the example
-only offers to delete pets it registered itself, and deletes its own unfinished registrations as
-they happen). Without a key the home screen says so, and the scan buttons stay disabled.
-
-**In your own app, do neither of these.** Anyone with the app binary can read a bundled key, so an
-app carries a **Client key (app)** at most — enough for the SDK, which needs SDK 1.5.0 or later —
-and never a Secret key. The Server API calls belong on your server: the app should receive only
-capture session IDs. `petnowBackend.ts` is the seam — `YourServerBackend` is the shape to copy.
-
 ## Troubleshooting
 
 See also [Troubleshooting](https://docs.petnow.io/petify/docs/sdk/react-native/getting-started#troubleshooting)
 in the guide.
 
 - **`npm install` fails with E401** — the registry token expired; repeat the login in step 2.
-- **"Could not load the pets: HTTP 401 PETNOWB2B10000"** on the home screen — the key is wrong or
-  deleted; check it in the Petify Console, then restart Metro (see
-  [The API key and the server](#the-api-key-and-the-server)).
-- **"HTTP 403 PETNOWB2B10014"** on the home screen or when a scan starts — the key is a Client key;
-  this example needs a Secret key (step 1).
-- **"HTTP 402 PETNOWB2B10011" / "PETNOWB2B10012"** after an identification — identification is not
-  in your plan, or the plan needs choosing; see
-  [Error codes](https://docs.petnow.io/petify/docs/server/api/error-codes).
-- **You fixed the key but nothing changed** — Metro is still running with the old one; restart it.
+- **"Set PETIFY_API_KEY in .env …" on Home** — `.env` is missing or the key is empty; set it and
+  restart Metro.
+- **"Could not create a capture session: HTTP 401 …"** on the guide — the key is wrong or revoked.
+  Put a valid Client key in `.env` and restart Metro.
+- **"Camera could not start" with a licence error** on the camera — the SDK refused the key: check
+  that it is a Client key from this console and has not been deleted.
+- **You fixed `.env` but nothing changed** — Metro is still running with the old values; restart it.
+- **Server mode: "No answer after 15 s" or a network error** — the phone cannot reach the server:
+  use the LAN address the server prints (not `localhost`), the same Wi-Fi, and allow the
+  local-network prompt on iOS. **"HTTP 401 unauthorized"** — `EXAMPLE_SERVER_TOKEN` does not match
+  the server's.
+- **Signing fails ("No account for team", or the bundle identifier is taken)** — choose your team
+  and a bundle identifier of your own under **Signing & Capabilities** (step 4).
 - **`pod install` fails with `Encoding::CompatibilityError`** — run `export LANG=en_US.UTF-8` first.
 
 ## License
 
 MIT for the example code. The Petify SDK is licensed separately under your Petify agreement. The
-Petify and Petnow names and logos and the photos in `assets/images/` are Petnow's and are not
-covered by the MIT licence; use them only to run this example. The bundled Material Icons font is
-Apache-2.0; its licence sits next to it.
+Petify and Petnow names are Petnow's and are not covered by the MIT licence.

@@ -1,10 +1,10 @@
 import Foundation
 
-/// EXAMPLE ONLY — do not ship this.
+/// EXAMPLE ONLY — camera-only mode.
 ///
-/// In a real integration your **server** creates the capture session with the
-/// Petify Server API and hands the app nothing but its ID. The app should never
-/// need to call this endpoint. It is here so the example runs without a backend.
+/// A Client key is allowed to create a capture session, so the example runs without
+/// a backend. In production your **server** creates the session with the Petify
+/// Server API and hands the app nothing but its ID (server mode does that).
 ///
 /// The session is for identification so that running the example does not
 /// create pets in your account.

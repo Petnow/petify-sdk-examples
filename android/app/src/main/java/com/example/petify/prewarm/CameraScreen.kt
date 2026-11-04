@@ -48,16 +48,14 @@ import io.petnow.ui.CameraController
 import io.petnow.ui.CameraResult
 import io.petnow.ui.CameraView
 import io.petnow.ui.config.DetectionConfiguration
-import io.petnow.ui.config.DetectionPurpose
 import io.petnow.ui.config.PetSpecies
 import io.petnow.ui.status.DetectionFailureReason
 import io.petnow.ui.status.DetectionStatus
 import kotlinx.coroutines.CancellationException
-import java.util.UUID
 
 @Composable
 fun CameraScreen(
-    captureSessionId: UUID,
+    session: CaptureSession,
     onCaptured: (CaptureSummary) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -102,7 +100,7 @@ fun CameraScreen(
                         currentOnCaptured(
                             CaptureSummary(
                                 fingerprintImages = result.fingerprintImageFiles,
-                                appearanceImageCount = result.appearanceImageFiles.size,
+                                appearanceImages = result.appearanceImageFiles,
                                 // ⑤ engineReused: the engine was already built when the camera started —
                                 //    true after a finished prewarm or when an earlier camera left one;
                                 //    false when this camera built it (on iOS, also when it joined a
@@ -129,8 +127,9 @@ fun CameraScreen(
         }
         try {
             controller.initializeCamera(
-                DetectionConfiguration(species = PetSpecies.DOG, purpose = DetectionPurpose.PET_IDENTIFICATION),
-                captureSessionId,
+                // Dog only. For cats, use PetSpecies.CAT here and send "CAT" when the session is created.
+                DetectionConfiguration(species = PetSpecies.DOG, purpose = session.purpose.detection),
+                session.id,
             )
             // startDetection() reports failure in its Result rather than throwing.
             controller.startDetection().onFailure { startError = it.message ?: it.toString() }

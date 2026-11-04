@@ -12,16 +12,15 @@
  * .env would leave the previous key in the bundle and the failure looks like
  * a server problem.
  *
- * This is a convenience for running a sample, which needs a Secret key for its
- * demo backend. A shipping app carries a Client key (app) at most — never a
- * Secret key — and leaves the Server API to its own server.
+ * The values are a Client key (app) and, optionally, the example server's URL
+ * and token. Never put a Secret key here: whatever is inlined ships in the app.
  */
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
 /** The variables the bundle is allowed to inline. */
-const INLINED_VARS = ['PETIFY_API_KEY'];
+const INLINED_VARS = ['PETIFY_API_KEY', 'EXAMPLE_SERVER_URL', 'EXAMPLE_SERVER_TOKEN'];
 
 const ENV_FILE = path.join(__dirname, '.env');
 
