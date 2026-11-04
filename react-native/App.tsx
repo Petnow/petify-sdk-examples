@@ -1,25 +1,23 @@
 /**
  * Official example for `@petify/react-native-camera-ui`.
  *
- * The UI follows the Petify app: the home screen, then — for a registration —
- * the pet's profile page, then the capture guide, then the branded capture
- * surface and the scan result. Identify and verify skip the profile page and go
- * straight to the guide.
+ * Home screen → species → capture guide → camera → scan result, for each of
+ * the three things the SDK does: register, identify and verify a pet.
  *
- * Pass the tenant API key at build time (see env.js):
+ * Pass a **Secret** API key from the Petify Console at build time (see env.js):
  *   cp .env.example .env     # PETIFY_API_KEY=…
  * A shell variable still overrides it: PETIFY_API_KEY=… npm run android
- * Your own app should fetch the key from your server instead of bundling it.
  *
- * With a key the example runs the full server flow (register / identify /
- * verify) through DemoBackend, against the production backend your key was
- * issued on: a registration here is a real pet in your account (delete it from
- * "See all"). Without a key it still exercises the camera and stops at the
- * captured images.
+ * The example runs the whole server flow through DemoBackend, against the
+ * production backend the key was issued on: a registration here is a real pet
+ * in your account (delete it from "See all"). That is why it needs a Secret
+ * key, and why your own app must not do this — the app should hold a Client
+ * key and leave the Server API to your server (see petnowBackend.ts).
  *
  * SDK 1.6.0: the models are prepared with PetnowPrewarm as soon as the user
- * starts a scan, while they read the profile page and the guide, and released
- * when they are back on the home screen. See the two effects marked ① and ④.
+ * picks what to scan, while they read the guide, and released when they are
+ * back on the home screen. See the effects marked ① and ④; ② ③ ⑤ are in
+ * captureScreen.tsx.
  */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
@@ -46,7 +44,6 @@ import {
 import {CaptureScreen} from './captureScreen';
 import {DemoBackend, petLabel, type DemoPet} from './demo/demoBackend';
 import {PetPickerSheet} from './demo/petPicker';
-import {PetProfileStore} from './demo/petProfiles';
 import {
   ActionCard,
   AppBar,
@@ -60,7 +57,6 @@ import {
   PetifyNotice,
   SpeciesPopup,
 } from './ui/petifyUi';
-import {ProfileFormScreen} from './ui/profileFormScreen';
 import {ScanGuideScreen} from './ui/scanGuideScreen';
 import type {ProfileDraft, SubmitResult} from './ui/scanCompleteScreen';
 
@@ -77,7 +73,7 @@ const API_KEY = process.env.PETIFY_API_KEY ?? '';
 // here and the scans the camera reports land in the same account.
 const API_BASE_URL = 'https://api.petify.petnow.io';
 
-/** Pre-capture checklist, mirroring the playground's intro step. */
+/** Pre-capture checklist. */
 const TIPS = [
   {
     glyph: MaterialIcon.wbSunny,
@@ -89,47 +85,17 @@ const TIPS = [
     title: 'Follow the guide.',
     body: "Fit the dog's nose or the cat's face inside the on-screen guide.",
   },
-  {
-    glyph: MaterialIcon.volumeUpOutlined,
-    title: 'Use sounds to draw attention.',
-    body: 'Sounds can help get your pet to look at the camera.',
-  },
 ];
-
-/** Minimal UUID v4, used as a placeholder session id when no key is configured. */
-function uuidV4(): string {
-  const bytes = Array.from({length: 16}, () => Math.floor(Math.random() * 256));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = (from: number, to: number) =>
-    bytes
-      .slice(from, to)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  return `${hex(0, 4)}-${hex(4, 6)}-${hex(6, 8)}-${hex(8, 10)}-${hex(10, 16)}`;
-}
 
 export default function App(): React.JSX.Element {
   const camera = usePetnowCamera({apiKey: API_KEY});
 
-  /**
-   * Demo-only server client; null when no API key was supplied, in which case
-   * the example captures but cannot register / identify / verify.
-   */
+  /** Demo-only server client; null until an API key is supplied. */
   const backend = useMemo(
     () => (API_KEY ? new DemoBackend(API_KEY, API_BASE_URL) : null),
     [],
   );
 
-  /** Profile photos for pets registered from this device. */
-  const profiles = useRef(new PetProfileStore()).current;
-  const [, forceRender] = useState(0);
-  const refresh = useCallback(() => forceRender(n => n + 1), []);
-
-  const [species, setSpecies] = useState<Species>('DOG');
-  const [purpose, setPurpose] = useState<DetectionPurpose>('PET_PROFILE_REGISTRATION');
-  /** The pet a verification runs against (1:1 needs a target). */
-  const [verifyTarget, setVerifyTarget] = useState<DemoPet | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   /**
@@ -139,18 +105,16 @@ export default function App(): React.JSX.Element {
    */
   const [pendingPurpose, setPendingPurpose] = useState<DetectionPurpose | null>(null);
   /**
-   * The screens between the home screen and the camera: the profile page (a
-   * registration only) and the capture guide. Held in one place so `Back` walks
-   * the flow rather than dropping the user home.
+   * The capture guide between the home screen and the camera. Held here so
+   * `Back` walks the guide's steps rather than dropping the user home.
    */
   const [flow, setFlow] = useState<{
     purpose: DetectionPurpose;
     species: Species;
+    /** The pet a verification runs against (1:1 needs a target). */
     target: DemoPet | null;
-    stage: 'profile' | 'guide';
     /** Which guide step is showing; owned here so hardware back can walk it. */
     guideStep: number;
-    draft: ProfileDraft | null;
   } | null>(null);
   /** The pets shown in the home screen's list card. */
   const [pets, setPets] = useState<DemoPet[] | null>(null);
@@ -162,15 +126,9 @@ export default function App(): React.JSX.Element {
     petId: string | null;
     purpose: DetectionPurpose;
     species: Species;
-    /** The profile page's answers, saved once the registration succeeds. */
-    draft: ProfileDraft | null;
   } | null>(null);
 
-  useEffect(() => {
-    profiles.load().then(refresh);
-  }, [profiles, refresh]);
-
-  /** The home screen lists the tenant's pets, as the Petify app does. */
+  /** The home screen lists the account's pets. */
   const loadPets = useCallback(() => {
     if (!backend) {
       return;
@@ -186,13 +144,18 @@ export default function App(): React.JSX.Element {
 
   useEffect(loadPets, [loadPets]);
 
-  // The SDK holds the camera; hand it back when the app goes to the background.
+  // Stop analysing frames while the app is in the background, and pick up
+  // again on return. Only `background`: iOS also reports `inactive` for the
+  // permission prompt and Control Center, where the camera should keep going.
+  const paused = useRef(false);
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
-      if (next === 'active') {
-        camera.resumeDetection();
-      } else {
+      if (next === 'background' && !paused.current) {
+        paused.current = true;
         camera.pauseDetection();
+      } else if (next === 'active' && paused.current) {
+        paused.current = false;
+        camera.resumeDetection();
       }
     });
     return () => sub.remove();
@@ -200,13 +163,14 @@ export default function App(): React.JSX.Element {
 
   const ready = camera.state.status === 'ready';
 
-  // ① Prewarm as soon as the user starts a scan. The profile page and the guide
-  //    take them a few seconds, which is the time the SDK needs to validate the
-  //    licence and load the models; the camera then opens on a ready engine.
-  //    Fire and forget: it resolves once the request is taken, not when the
-  //    models are ready, and an invalid key still surfaces on the camera, not
-  //    here. The species is known by now (the popup asked), so name it; when it
-  //    is not, leave it out and both are prepared.
+  // ① Prewarm as soon as the user picks what to scan — one screen earlier than
+  //    the guide's own mount, because the species popup is where this flow
+  //    starts. The guide takes the user a few seconds, which is the time the SDK
+  //    needs to validate the licence and load the models; the camera then opens
+  //    on a ready engine. Fire and forget: it resolves once the request is
+  //    taken, not when the models are ready, and an invalid key still surfaces
+  //    on the camera, not here. The species is known by now (the popup asked),
+  //    so name it; when your flow does not know it, leave it out.
   const flowSpecies = flow?.species;
   useEffect(() => {
     if (ready && flowSpecies) {
@@ -239,13 +203,12 @@ export default function App(): React.JSX.Element {
    * do on a retake — fails with `PETNOWB2B20014` (CaptureSessionAlreadyUsed), so
    * every capture attempt opens its own.
    */
-  const newSession = useCallback(
-    (forPurpose: DetectionPurpose, petId: string | null, forSpecies: Species) =>
-      backend
-        ? backend.createCaptureSession({species: forSpecies, purpose: forPurpose, petId})
-        : Promise.resolve(uuidV4()),
-    [backend],
-  );
+  const newSession = (
+    server: DemoBackend,
+    forPurpose: DetectionPurpose,
+    petId: string | null,
+    forSpecies: Species,
+  ) => server.createCaptureSession({species: forSpecies, purpose: forPurpose, petId});
 
   const requestCamera = async (): Promise<boolean> => {
     if (Platform.OS !== 'android') {
@@ -268,7 +231,6 @@ export default function App(): React.JSX.Element {
     return false;
   };
 
-  /** Advance the checklist; from the last card, start the capture. */
   /**
    * An action card was tapped: ask which animal, then start. Verification
    * skips the popup — the pet the user picked already names its species.
@@ -281,69 +243,47 @@ export default function App(): React.JSX.Element {
     if (!forPurpose) {
       return;
     }
-    setSpecies(chosen);
-    // A registration collects the pet's profile first; the other two purposes
-    // have nothing to fill in and go straight to the guide.
-    setFlow({
-      purpose: forPurpose,
-      species: chosen,
-      target: null,
-      stage: forPurpose === 'PET_PROFILE_REGISTRATION' ? 'profile' : 'guide',
-      guideStep: 0,
-      draft: null,
-    });
+    setFlow({purpose: forPurpose, species: chosen, target: null, guideStep: 0});
   };
 
   /** A pet in the list card was tapped: verify against it. */
   const verifyPet = (pet: DemoPet) => {
-    setVerifyTarget(pet);
-    const petSpecies = (pet.species as Species) ?? species;
-    setSpecies(petSpecies);
     setFlow({
       purpose: 'PET_VERIFICATION',
-      species: petSpecies,
+      species: (pet.species as Species) ?? 'DOG',
       target: pet,
-      stage: 'guide',
       guideStep: 0,
-      draft: null,
     });
   };
 
   const startCapture = async (
-    forPurpose: DetectionPurpose = purpose,
-    forSpecies: Species = species,
-    target: DemoPet | null = verifyTarget,
-    draft: ProfileDraft | null = null,
+    forPurpose: DetectionPurpose,
+    forSpecies: Species,
+    target: DemoPet | null,
   ) => {
     if (!(await requestCamera())) {
       return;
     }
-    if (!ready) {
+    if (!backend || !ready) {
       Alert.alert('SDK not ready', `Camera state: ${camera.state.status}`);
       return;
     }
-    if (backend && forPurpose === 'PET_VERIFICATION' && !target) {
-      Alert.alert('Pick the pet to verify against first.');
-      return;
-    }
-    setPurpose(forPurpose);
 
     // The session id must come from `POST /v2/capture-sessions` — the SDK
     // rejects anything that is not a valid UUID, and the server ties the
-    // uploaded images to it. Without a key we fake one to exercise the camera.
+    // uploaded images to it.
     setBusy(true);
     try {
-      const petId = backend
-        ? forPurpose === 'PET_PROFILE_REGISTRATION'
+      const petId =
+        forPurpose === 'PET_PROFILE_REGISTRATION'
           ? // Registration needs the pet to exist first; the session is scoped
             // to it (otherwise the server answers PETNOWB2B20011).
             await backend.createPet(forSpecies)
           : forPurpose === 'PET_VERIFICATION'
             ? target!.id
-            : null
-        : null;
-      const sessionId = await newSession(forPurpose, petId, forSpecies);
-      setCapture({sessionId, petId, purpose: forPurpose, species: forSpecies, draft});
+            : null;
+      const sessionId = await newSession(backend, forPurpose, petId, forSpecies);
+      setCapture({sessionId, petId, purpose: forPurpose, species: forSpecies});
       setFlow(null);
     } catch (e) {
       Alert.alert('Could not start the session', String(e));
@@ -356,6 +296,7 @@ export default function App(): React.JSX.Element {
 
   /** Uploads the capture and runs the server step for `purpose`. */
   const submit = async (
+    server: DemoBackend,
     result: CameraResult,
     profile: ProfileDraft,
     sessionId: string,
@@ -363,20 +304,17 @@ export default function App(): React.JSX.Element {
     forPurpose: DetectionPurpose,
     petId: string | null,
   ): Promise<SubmitResult> => {
-    if (!backend) {
-      return {ok: true, title: 'Captured', lines: []};
-    }
     try {
       onStep('Uploading images…');
-      await backend.uploadCapture(sessionId, result);
+      await server.uploadCapture(sessionId, result);
 
       switch (forPurpose) {
         case 'PET_PROFILE_REGISTRATION': {
           onStep('Registering the pet…');
-          const status = await backend.addFingerprints(petId!, sessionId);
-          if (status === 'SUCCESS') {
-            onStep('Saving the profile…');
-            await saveProfile(petId!, profile);
+          const status = await server.addFingerprints(petId!, sessionId);
+          if (status === 'SUCCESS' && profile.name) {
+            onStep('Saving the name…');
+            await saveName(server, petId!, profile.name);
           }
           return {
             ok: status === 'SUCCESS',
@@ -386,7 +324,7 @@ export default function App(): React.JSX.Element {
         }
         case 'PET_IDENTIFICATION': {
           onStep('Searching…');
-          const found = await backend.identify(sessionId);
+          const found = await server.identify(sessionId);
           if (found.length === 0) {
             return {
               ok: true,
@@ -407,7 +345,7 @@ export default function App(): React.JSX.Element {
         }
         case 'PET_VERIFICATION': {
           onStep('Verifying…');
-          const check = await backend.verify({petId: petId!, sessionId});
+          const check = await server.verify({petId: petId!, sessionId});
           return {
             ok: check.isMatch,
             title: check.isMatch ? 'Same pet' : 'Not the same pet',
@@ -426,39 +364,25 @@ export default function App(): React.JSX.Element {
   };
 
   /**
-   * Stores the pet's profile: the name on the server (the pet's `metadata`) and
-   * the photo on the device, since the API keeps no pet image.
+   * Stores the pet's name in its free-form `metadata`, which is where an app
+   * keeps its own pet record, keyed by the Petify pet id.
    */
-  const saveProfile = async (petId: string, profile: ProfileDraft) => {
-    const name = profile.name?.length ? profile.name : `Pet ${petId.split('-')[0]}`;
+  const saveName = async (server: DemoBackend, petId: string, name: string) => {
     try {
-      // Everything the profile page collected: `metadata` is free-form, so an
-      // app puts its own pet record here and keys it by the PetNow pet id.
-      await backend!.updateMetadata(petId, {
-        name,
-        ...(profile.breed ? {breed: profile.breed} : {}),
-        ...(profile.gender ? {gender: profile.gender} : {}),
-        ...(profile.birthdate ? {birthdate: profile.birthdate} : {}),
-        ...(profile.neutered ? {neutered: true} : {}),
-      });
+      await server.setName(petId, name);
+      loadPets();
     } catch {
-      // The local profile is still worth keeping if the PATCH fails.
+      // The registration itself succeeded; a missing name is only cosmetic.
     }
-    await profiles.save({petId, name, sourceImagePath: profile.imagePath});
-    refresh();
   };
 
   /**
-   * Deletes the pet on the server — which takes its fingerprints with it, as the
-   * API has no fingerprint-only delete — and forgets the local profile.
+   * Deletes the pet on the server, which takes its fingerprints with it: the
+   * API has no fingerprint-only delete.
    */
   const deletePet = async (pet: DemoPet) => {
     await backend!.deletePet(pet.id);
-    await profiles.remove(pet.id);
-    if (verifyTarget?.id === pet.id) {
-      setVerifyTarget(null);
-    }
-    refresh();
+    loadPets();
   };
 
   /**
@@ -474,21 +398,7 @@ export default function App(): React.JSX.Element {
     if (!flow) {
       return false;
     }
-    if (flow.stage === 'guide') {
-      if (flow.guideStep > 0) {
-        setFlow({...flow, guideStep: flow.guideStep - 1});
-      } else {
-        // A registration steps back into its profile page, keeping what was
-        // typed; the other purposes have nothing behind the guide.
-        setFlow(
-          flow.purpose === 'PET_PROFILE_REGISTRATION'
-            ? {...flow, stage: 'profile'}
-            : null,
-        );
-      }
-      return true;
-    }
-    setFlow(null);
+    setFlow(flow.guideStep > 0 ? {...flow, guideStep: flow.guideStep - 1} : null);
     return true;
   }, [capture, flow]);
 
@@ -499,7 +409,7 @@ export default function App(): React.JSX.Element {
 
   // --------------------------------------------------------------------- view
 
-  if (capture) {
+  if (capture && backend) {
     return (
       <CaptureScreen
         camera={camera}
@@ -508,35 +418,21 @@ export default function App(): React.JSX.Element {
           purpose: capture.purpose,
           captureSessionId: capture.sessionId,
         }}
-        onSubmit={
-          backend
-            ? (result, profile, sessionId, onStep) =>
-                submit(result, profile, sessionId, onStep, capture.purpose, capture.petId)
-            : null
+        onSubmit={(result, profile, sessionId, onStep) =>
+          submit(backend, result, profile, sessionId, onStep, capture.purpose, capture.petId)
         }
         // Scanning again needs a new session — but the same pet, so a retake
         // does not leave an empty pet behind on the server.
-        onNewSession={() => newSession(capture.purpose, capture.petId, capture.species)}
-        profileDraft={capture.draft}
+        onNewSession={() =>
+          newSession(backend, capture.purpose, capture.petId, capture.species)
+        }
         onClose={() => setCapture(null)}
       />
     );
   }
 
-  // The pet's profile, then the guide — the two screens the app shows before it
-  // hands the camera over to the SDK.
-  if (flow?.stage === 'profile') {
-    return (
-      <ProfileFormScreen
-        species={flow.species}
-        initial={flow.draft}
-        onBack={goBack}
-        onNext={draft => setFlow({...flow, draft, stage: 'guide', guideStep: 0})}
-      />
-    );
-  }
-
-  if (flow?.stage === 'guide') {
+  // The guide is the screen the app shows before it hands the camera to the SDK.
+  if (flow) {
     return (
       <ScanGuideScreen
         species={flow.species}
@@ -544,15 +440,12 @@ export default function App(): React.JSX.Element {
         busy={busy}
         onBack={goBack}
         onNext={() => setFlow({...flow, guideStep: flow.guideStep + 1})}
-        onStart={() =>
-          startCapture(flow.purpose, flow.species, flow.target, flow.draft)
-        }
+        onStart={() => startCapture(flow.purpose, flow.species, flow.target)}
       />
     );
   }
 
   const petRows = pets ?? [];
-  const canList = Boolean(backend);
   const notice = !API_KEY
     ? {
         message: 'No API key. Put PETIFY_API_KEY in .env (see .env.example).',
@@ -567,7 +460,7 @@ export default function App(): React.JSX.Element {
         }
       : !ready
         ? {
-            message: 'Validating the license with PetNow…',
+            message: 'Validating the license…',
             tone: Petify.main,
             icon: MaterialIcon.hourglassEmpty,
           }
@@ -607,11 +500,11 @@ export default function App(): React.JSX.Element {
               glyph={MaterialIcon.pets}
               action={{
                 label: 'See all',
-                onPress: canList ? () => setPickerOpen(true) : null,
+                onPress: backend ? () => setPickerOpen(true) : null,
               }}
             />
-            {!canList ? (
-              <CardMessage text="Add an API key to list this tenant's pets." />
+            {!backend ? (
+              <CardMessage text="Add an API key to list your pets." />
             ) : petsError ? (
               <CardMessage text="Could not load the pets." />
             ) : pets === null ? (
@@ -622,9 +515,8 @@ export default function App(): React.JSX.Element {
               petRows.slice(0, 3).map((pet, index, shown) => (
                 <ListRow
                   key={pet.id}
-                  title={profiles.get(pet.id)?.name ?? petLabel(pet)}
+                  title={petLabel(pet)}
                   subtitle="Tap to verify this pet"
-                  imagePath={profiles.get(pet.id)?.imagePath}
                   onPress={() => verifyPet(pet)}
                   last={index === shown.length - 1}
                 />
@@ -632,7 +524,7 @@ export default function App(): React.JSX.Element {
             )}
           </Card>
 
-          {/* Before you scan: the playground's checklist, one card. */}
+          {/* Before you scan: the capture checklist, one card. */}
           <Card>
             <CardHeader title="Before you scan" glyph={MaterialIcon.infoOutline} />
             <View style={styles.tips}>
@@ -660,7 +552,6 @@ export default function App(): React.JSX.Element {
             </Card>
           ) : null}
 
-          {busy ? <Text style={styles.busy}>Starting the session…</Text> : null}
         </ScrollView>
       </View>
 
@@ -679,7 +570,6 @@ export default function App(): React.JSX.Element {
         <PetPickerSheet
           visible={pickerOpen}
           loadPets={() => backend.listPets()}
-          profiles={profiles}
           onDelete={deletePet}
           onPick={pet => {
             setPickerOpen(false);
@@ -709,10 +599,4 @@ const styles = StyleSheet.create({
     fontFamily: Petify.font,
   },
   noticeCard: {padding: 16},
-  busy: {
-    textAlign: 'center',
-    color: Petify.inkMuted,
-    fontSize: 13,
-    fontFamily: Petify.fontMedium,
-  },
 });

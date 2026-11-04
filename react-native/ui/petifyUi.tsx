@@ -10,12 +10,8 @@ import {
 } from 'react-native';
 
 /**
- * Design tokens and shared chrome, mirroring the Petify web playground
- * (https://www.petnow.io/en/petify/playground) so this example looks like the
- * capture flow customers see there.
- *
- * Sources: `@petify/camera-ui` (CameraMaskOverlay / CameraControls /
- * CameraCallout / ScanGuideSheet) and `web-app/src/app.css`.
+ * Design tokens and shared chrome for this example. None of it is part of the
+ * SDK: it is one app's look, and yours will differ.
  */
 export const Petify = {
   /** Brand blue — ring, primary buttons, callout. */
@@ -24,7 +20,7 @@ export const Petify = {
   success: '#2FC869',
   error: '#FF323E',
 
-  /** Bottom control bar (`--color-control-bar`). */
+  /** Bottom control bar. */
   controlBar: '#050608',
 
   /** Sheets and floating dark panels. */
@@ -41,10 +37,9 @@ export const Petify = {
   calloutBg: 'rgba(0,51,181,0.80)',
 
   /**
-   * App chrome — the Petify app's own palette (Figma: petnow-main / petnow-sub /
-   * neutral-grey). The capture surface above keeps the camera-ui tokens, so the
-   * SDK's own overlay still looks like itself; everything the example draws
-   * around it uses these.
+   * App chrome. The capture surface above keeps its own colours, so the SDK's
+   * overlay still looks like itself; everything the example draws around it
+   * uses these.
    */
   main: '#FF592C',
   mainPressed: '#CE4926',
@@ -63,26 +58,22 @@ export const Petify = {
   surfaceTint: '#E8EDF9',
   surfaceMuted: '#F3F4F6',
 
-  /**
-   * Roboto and Material Icons, bundled so the example renders the same on both
-   * platforms (iOS would otherwise use SF Pro for text). See
-   * react-native.config.js.
-   */
-  font: 'Roboto',
-  fontMedium: 'Roboto-Medium',
-  fontBold: 'Roboto-Bold',
+  /** Text uses the system font; icons come from the bundled Material Icons. */
+  font: undefined,
+  fontMedium: undefined,
+  fontBold: undefined,
   iconFont: 'MaterialIcons-Regular',
 
-  /** Overlay chrome is centred and capped at this width (`MAX_UI_WIDTH_PX`). */
+  /** Overlay chrome is centred and capped at this width. */
   maxUiWidth: 400,
 
-  /** Mask circle geometry (CameraMaskOverlay defaults). */
+  /** Mask circle geometry. */
   maskMargin: 12,
   maskVerticalOffset: -44,
   maskStrokeWidth: 5,
 } as const;
 
-/** Full-width filled action — the playground's "Next" / "Confirm" button. */
+/** Full-width filled action ("Next", "Confirm"). */
 export function PetifyPrimaryButton({
   label,
   onPress,
@@ -107,7 +98,7 @@ export function PetifyPrimaryButton({
   );
 }
 
-/** Full-width outlined action — the playground's "Back to start" button. */
+/** Full-width outlined action ("Scan again"). */
 export function PetifySecondaryButton({
   label,
   onPress,
@@ -127,32 +118,13 @@ export function PetifySecondaryButton({
   );
 }
 
-/** A pet's profile photo, falling back to a paw when none was saved. */
-export function PetAvatar({
-  imagePath,
-  size = 48,
-}: {
-  imagePath?: string | null;
-  size?: number;
-}) {
-  const radius = size / 4;
-  if (!imagePath) {
-    return (
-      <View
-        style={[
-          styles.avatarFallback,
-          {width: size, height: size, borderRadius: radius},
-        ]}>
-        <Icon glyph={MaterialIcon.pets} size={size / 2} color={Petify.brand} />
-      </View>
-    );
-  }
+/** A pet's avatar: a paw on a tinted tile. */
+export function PetAvatar({size = 48}: {size?: number}) {
   return (
-    <Image
-      source={{uri: toFileUri(imagePath)}}
-      style={{width: size, height: size, borderRadius: radius}}
-      resizeMode="cover"
-    />
+    <View
+      style={[styles.avatarFallback, {width: size, height: size, borderRadius: size / 4}]}>
+      <Icon glyph={MaterialIcon.pets} size={size / 2} color={Petify.brand} />
+    </View>
   );
 }
 
@@ -197,56 +169,12 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-/** Example-only segmented control (species / purpose). */
-export function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: {value: T; label: string}[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <View style={styles.segmented}>
-      {options.map(option => {
-        const selected = option.value === value;
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="button"
-            onPress={() => onChange(option.value)}
-            style={[styles.segment, selected && styles.segmentOn]}>
-            <Text style={[styles.segmentLabel, selected && styles.segmentLabelOn]}>
-              {option.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-/** Page indicator for the checklist carousel. */
-export function Dots({count, active}: {count: number; active: number}) {
-  return (
-    <View style={styles.dots}>
-      {Array.from({length: count}, (_, i) => (
-        <View key={i} style={[styles.dot, i === active && styles.dotOn]} />
-      ))}
-    </View>
-  );
-}
-
-
 /**
  * A Material icon, drawn from the bundled Material Icons font by codepoint.
  */
 export const MaterialIcon = {
   wbSunny: '\uf4bc',
   centerFocusStrong: '\uef3a',
-  volumeUp: '\ue6c5',
-  volumeUpOutlined: '\uf4a8',
   close: '\ue16a',
   helpOutline: '\ue30b',
   cameraswitch: '\uef26',
@@ -255,15 +183,11 @@ export const MaterialIcon = {
   keyOff: '\udb81\udd2c', // U+F052C, outside the BMP
   errorOutline: '\ue238',
   hourglassEmpty: '\ue325',
-  expandMore: '\ue246',
   deleteOutline: '\ue1bb',
   chevronRight: '\ue15f',
   qrCodeScanner: '\ue4f7',
   photoCamera: '\ue4b6',
   arrowBack: '\ue092',
-  checkBox: '\ue157',
-  checkBoxBlank: '\ue158',
-  calendarToday: '\ue122',
 } as const;
 
 export function Icon({
@@ -321,19 +245,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   noticeText: {flex: 1, fontSize: 13, lineHeight: 19, fontFamily: Petify.fontMedium},
-  segmented: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: 10,
-    backgroundColor: Petify.surfaceMuted,
-  },
-  segment: {flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center'},
-  segmentOn: {backgroundColor: Petify.brand},
-  segmentLabel: {fontSize: 14, fontFamily: Petify.fontMedium, color: Petify.inkMuted},
-  segmentLabelOn: {color: '#FFFFFF'},
-  dots: {flexDirection: 'row', justifyContent: 'center', gap: 8},
-  dot: {width: 8, height: 8, borderRadius: 4, backgroundColor: Petify.hairline},
-  dotOn: {backgroundColor: Petify.brand},
 });
 
 // ---------------------------------------------------------------------------
@@ -417,13 +328,11 @@ export function ActionCard({
 export function ListRow({
   title,
   subtitle,
-  imagePath,
   onPress,
   last = false,
 }: {
   title: string;
   subtitle?: string;
-  imagePath?: string;
   onPress?: () => void;
   last?: boolean;
 }) {
@@ -435,7 +344,7 @@ export function ListRow({
         pressed && {backgroundColor: Petify.mainTint},
       ]}
       onPress={onPress}>
-      <PetAvatar imagePath={imagePath} size={44} />
+      <PetAvatar size={44} />
       <View style={{flex: 1}}>
         <Text style={appStyles.rowTitle} numberOfLines={1}>
           {title}

@@ -2,8 +2,6 @@ import React, {useState} from 'react';
 import {
   ActivityIndicator,
   Image,
-  Modal,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -14,7 +12,6 @@ import {
 import type {CameraResult} from '@petify/react-native-camera-ui';
 
 import {
-  PetAvatar,
   Petify,
   PetifyPrimaryButton,
   PetifySecondaryButton,
@@ -33,21 +30,15 @@ export type CaptureSubmit = (
 ) => Promise<SubmitResult>;
 
 /**
- * What a registration should save as the pet's profile: what the user typed on
- * the profile page, plus the face frame they pick here. Empty for identify /
- * verify.
+ * What a registration saves with the pet: the name typed here. Empty for
+ * identify / verify.
  *
- * Only `species` is a real field on a pet; the rest is written to the pet's
- * free-form `metadata` (see `DemoBackend.updateMetadata`).
+ * Only `species` is a real field on a pet; the name goes into the pet's
+ * free-form `metadata` (see `DemoBackend.updateMetadata`), which is where your
+ * app would keep its own pet record.
  */
 export interface ProfileDraft {
   name?: string;
-  breed?: string | null;
-  gender?: 'MALE' | 'FEMALE' | null;
-  neutered?: boolean;
-  /** `YYYY-MM-DD`. */
-  birthdate?: string | null;
-  imagePath?: string;
 }
 
 /** Outcome of a register / identify / verify round trip. */
@@ -60,51 +51,40 @@ export interface SubmitResult {
 }
 
 /**
- * Capture result, mirroring the playground's scan-complete step: the captured
- * images in a grid, then confirm or scan again.
+ * Capture result: the captured images in a grid, then confirm or scan again.
  *
  * Confirming runs `onSubmit` — upload plus the purpose's server call — and
- * shows what came back. Without a backend it simply closes.
+ * shows what came back.
  */
 export function ScanCompleteScreen({
   result,
   isCat,
   onSubmit,
-  askProfile = false,
-  draft,
+  askName = false,
   onScanAgain,
   onDone,
 }: {
   result: CameraResult;
   isCat: boolean;
-  onSubmit?: CaptureSubmit | null;
-  /** Registration finishes the pet's profile — the photo — here. */
-  askProfile?: boolean;
-  /** What the profile page collected before the scan. */
-  draft?: ProfileDraft | null;
+  onSubmit: CaptureSubmit;
+  /** A registration names the pet here. */
+  askName?: boolean;
   onScanAgain: () => void;
   onDone: () => void;
 }) {
-  const [profilePick, setProfilePick] = useState(0);
   const [step, setStep] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<SubmitResult | null>(null);
-  const [name, setName] = useState(draft?.name ?? '');
-  const [picking, setPicking] = useState(false);
+  const [name, setName] = useState('');
 
   const images = result.fingerprintImages;
   const noun = isCat ? 'face' : 'nose print';
   const busy = step !== null;
-  const profileImage = result.appearanceImages[profilePick];
+  // A stopped scan has nothing worth sending; the only way on is another scan.
+  const canConfirm = result.success && images.length > 0;
 
   const confirm = async () => {
-    if (!onSubmit) {
-      onDone();
-      return;
-    }
     setStep('Uploading images…');
-    const profile: ProfileDraft = askProfile
-      ? {...draft, name: name.trim(), imagePath: profileImage}
-      : {};
+    const profile: ProfileDraft = askName ? {name: name.trim()} : {};
     const submitted = await onSubmit(result, profile, setStep);
     setStep(null);
     setOutcome(submitted);
@@ -117,7 +97,7 @@ export function ScanCompleteScreen({
           {result.success ? 'Scan Complete!' : 'Scan stopped'}
         </Text>
         <Text style={styles.subtitle}>
-          {images.length} {noun} images captured — all of them are registered together
+          {images.length} {noun} images captured
         </Text>
       </View>
 
@@ -141,36 +121,15 @@ export function ScanCompleteScreen({
       )}
 
       <View style={styles.footer}>
-        {askProfile && outcome === null ? (
-          <View style={styles.profileEditor}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Choose the profile photo"
-              disabled={busy || result.appearanceImages.length < 2}
-              onPress={() => setPicking(true)}>
-              <PetAvatar imagePath={profileImage} size={56} />
-            </Pressable>
-            {draft?.name ? (
-              // The profile page already asked; this only picks the photo.
-              <View style={{flex: 1}}>
-                <Text style={styles.profileName} numberOfLines={1}>
-                  {draft.name}
-                </Text>
-                <Text style={styles.profileHint} numberOfLines={1}>
-                  {profileDetail(draft) || 'Tap the photo to choose another frame'}
-                </Text>
-              </View>
-            ) : (
-              <TextInput
-                style={styles.nameInput}
-                placeholder="Pet name"
-                placeholderTextColor={Petify.inkFaint}
-                editable={!busy}
-                value={name}
-                onChangeText={setName}
-              />
-            )}
-          </View>
+        {askName && outcome === null ? (
+          <TextInput
+            style={styles.nameInput}
+            placeholder="Pet name (optional)"
+            placeholderTextColor={Petify.inkFaint}
+            editable={!busy}
+            value={name}
+            onChangeText={setName}
+          />
         ) : null}
 
         {busy ? (
@@ -185,49 +144,14 @@ export function ScanCompleteScreen({
         <PetifyPrimaryButton
           label={outcome ? 'Done' : 'Confirm'}
           busy={busy}
-          onPress={busy || images.length === 0 ? null : outcome ? onDone : confirm}
+          onPress={busy ? null : outcome ? onDone : canConfirm ? confirm : null}
         />
         <View style={{height: 10}} />
         <PetifySecondaryButton label="Scan Again" onPress={busy ? null : onScanAgain} />
       </View>
 
-      {/* Which face frame becomes the profile photo. */}
-      <Modal visible={picking} transparent animationType="fade">
-        <Pressable style={styles.pickBackdrop} onPress={() => setPicking(false)} />
-        <View style={styles.pickSheet}>
-          <Text style={styles.pickTitle}>Profile photo</Text>
-          <ScrollView horizontal contentContainerStyle={styles.pickRow}>
-            {result.appearanceImages.map((path, index) => (
-              <Pressable
-                key={path}
-                accessibilityRole="button"
-                onPress={() => {
-                  setProfilePick(index);
-                  setPicking(false);
-                }}>
-                <Image
-                  source={{uri: toFileUri(path)}}
-                  style={[styles.pickImage, index === profilePick && styles.pickImageOn]}
-                />
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
-}
-
-/** "Poodle · Female · 2 y" — the profile page's answers, in one line. */
-function profileDetail(draft: ProfileDraft): string {
-  return [
-    draft.breed,
-    draft.gender === 'MALE' ? 'Male' : draft.gender === 'FEMALE' ? 'Female' : null,
-    draft.neutered ? 'Neutered' : null,
-    draft.birthdate,
-  ]
-    .filter(Boolean)
-    .join(' · ');
 }
 
 function OutcomeCard({outcome}: {outcome: SubmitResult}) {
@@ -282,10 +206,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
   },
-  profileEditor: {flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12},
   nameInput: {
-    flex: 1,
     height: 52,
+    marginBottom: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Petify.hairline,
@@ -293,13 +216,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: Petify.font,
     color: Petify.ink,
-  },
-  profileName: {fontSize: 16, fontFamily: Petify.fontBold, color: Petify.ink},
-  profileHint: {
-    marginTop: 2,
-    fontSize: 13,
-    fontFamily: Petify.font,
-    color: Petify.inkFaint,
   },
   stepRow: {flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12},
   stepText: {color: Petify.inkMuted, fontSize: 14, fontFamily: Petify.font},
@@ -318,29 +234,4 @@ const styles = StyleSheet.create({
     color: Petify.inkFaint,
     lineHeight: 17,
   },
-  pickBackdrop: {...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)'},
-  pickSheet: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    top: '35%',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-  },
-  pickTitle: {
-    fontSize: 16,
-    fontFamily: Petify.fontBold,
-    color: Petify.ink,
-    marginBottom: 12,
-  },
-  pickRow: {gap: 10},
-  pickImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 10,
-    borderWidth: 3,
-    borderColor: 'transparent',
-  },
-  pickImageOn: {borderColor: Petify.brand},
 });

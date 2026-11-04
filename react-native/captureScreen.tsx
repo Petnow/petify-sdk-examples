@@ -1,11 +1,9 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {
   CameraView,
-  PetnowSound,
   type CameraResult,
   type DetectionStatus,
-  type GuidanceSound,
   type PetnowCamera,
   type PetnowCameraConfig,
 } from '@petify/react-native-camera-ui';
@@ -17,13 +15,11 @@ import {
   DetectionBanner,
   CameraTopBar,
   ScanGuideSheet,
-  SoundSelectionPanel,
   type BannerTone,
 } from './ui/cameraChrome';
 import {Petify} from './ui/petifyUi';
 import {
   ScanCompleteScreen,
-  type CaptureSubmit,
   type ProfileDraft,
   type SubmitResult,
 } from './ui/scanCompleteScreen';
@@ -37,26 +33,23 @@ export type SessionSubmit = (
 ) => Promise<SubmitResult>;
 
 /**
- * The capture surface, styled after the Petify web playground.
+ * The capture surface.
  *
  * `<CameraView>` renders the native preview and the SDK's own tracking overlay;
- * this screen adds the playground chrome around it and turns the SDK's
- * `onDetection*` callbacks into the guidance the playground shows.
+ * this screen adds the app's chrome around it and turns the SDK's
+ * `onDetection*` callbacks into guidance for the user.
  */
 export function CaptureScreen({
   camera,
   config,
   onSubmit,
-  profileDraft,
   onNewSession,
   onClose,
 }: {
   camera: PetnowCamera;
   /** The configuration for the *first* capture; a retake swaps the session. */
   config: PetnowCameraConfig;
-  onSubmit?: SessionSubmit | null;
-  /** What the profile page collected, for a registration. */
-  profileDraft?: ProfileDraft | null;
+  onSubmit: SessionSubmit;
   /**
    * Issues a new capture session for a retake, against the same pet.
    *
@@ -75,39 +68,23 @@ export function CaptureScreen({
   const [result, setResult] = useState<CameraResult | null>(null);
   const [newSessionPending, setNewSessionPending] = useState(false);
   /**
-   * Whether every model this species needs is ready. Since 1.6.0 the preview
-   * (and face-only frames) can come up before that; the screen says
-   * "Preparing" until then instead of asking the user to aim.
+   * Whether every model this species needs is ready, from
+   * `performanceStats.detectionReadyAtMs`. Since 1.6.0 the preview (and
+   * face-only frames) can come up before that; the screen says "Preparing"
+   * until then instead of asking the user to aim.
    */
   const [detectionReady, setDetectionReady] = useState(false);
-
-  const [sound, setSound] = useState<GuidanceSound>('random');
-  const [soundPlaying, setSoundPlaying] = useState(false);
-  const [soundPanelOpen, setSoundPanelOpen] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(false);
-  const soundHandle = useRef<number | null>(null);
-  const soundTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isCat = liveConfig.species === 'CAT';
-
-  useEffect(() => {
-    // Load the guidance samples up front so the first tap plays immediately.
-    PetnowSound.prepare().catch(() => {});
-    return () => {
-      if (soundTimer.current) {
-        clearTimeout(soundTimer.current);
-      }
-      PetnowSound.release();
-    };
-  }, []);
+  const failed = status?.type === 'failed';
 
   // ---------------------------------------------------------------- guidance
 
   /**
-   * The mask is shown once detection is running but nothing is locked on yet —
-   * the playground's "detecting" state. Before the first status arrives the
-   * screen shows "preparing" instead, so the ring does not sit over a black
-   * preview while the SDK loads.
+   * The mask is shown once detection is running but nothing is locked on yet.
+   * Until the models are ready the screen shows "Preparing" instead, so the
+   * ring does not ask the user to aim at a camera that cannot detect yet.
    */
   // ② Guide from detection feedback, not from the preview appearing.
   const maskVisible = detectionReady && status?.type === 'noObject';
@@ -119,7 +96,8 @@ export function CaptureScreen({
       return error;
     }
     if (!detectionReady) {
-      return 'Preparing';
+      // A failure this early is a setup failure (see the banner), not a frame.
+      return failed ? 'Not scanning' : 'Preparing';
     }
     switch (status?.type) {
       case undefined:
@@ -133,7 +111,7 @@ export function CaptureScreen({
     }
   })();
 
-  /** The floating banner, matching the playground's tracker message. */
+  /** The floating banner above the controls. */
   const banner: {message: string; tone: BannerTone} | null = (() => {
     if (error) {
       return null;
@@ -153,57 +131,21 @@ export function CaptureScreen({
           tone: 'success',
         };
       case 'failed':
-        // Setup failures (bad config, license, permissions) arrive as
-        // `unexpected` and carry the native message in `reason`.
+        // Setup failures (a refused key, a missing permission, a camera that
+        // would not open) arrive as `'Unexpected'`, with the native message on
+        // `rawReason`. Show it: "something unexpected happened" helps nobody
+        // fix a key.
         return {
           message:
-            REASON_MESSAGES[status.reason] ?? 'Please try again',
+            status.reason === 'Unexpected' && status.rawReason
+              ? status.rawReason
+              : (REASON_MESSAGES[status.reason] ?? 'Please try again'),
           tone: 'error',
         };
       default:
         return null;
     }
   })();
-
-  // ------------------------------------------------------------------- sound
-
-  const soundOptions: {value: GuidanceSound; label: string}[] = [
-    {value: 'random', label: 'Random'},
-    {value: 'bagOfChips', label: 'Bag rustling'},
-    {value: 'openingCan', label: 'Can opening'},
-    {value: 'pouringFood', label: 'Pouring food'},
-    {value: 'shakers', label: 'Shaker'},
-    isCat
-      ? {value: 'pspsps', label: 'Pspsps'}
-      : {value: 'squeakyToy', label: 'Squeaky toy'},
-  ];
-
-  const stopSound = useCallback(() => {
-    if (soundTimer.current) {
-      clearTimeout(soundTimer.current);
-    }
-    if (soundHandle.current !== null) {
-      PetnowSound.stop(soundHandle.current);
-      soundHandle.current = null;
-    }
-    setSoundPlaying(false);
-  }, []);
-
-  const toggleSound = () => {
-    if (soundPlaying) {
-      stopSound();
-      return;
-    }
-    const handle = PetnowSound.play(sound, liveConfig.species);
-    if (handle < 0) {
-      return;
-    }
-    soundHandle.current = handle;
-    setSoundPlaying(true);
-    // The native player has no completion callback; clear the active state
-    // after a typical sample length so the button does not stay lit.
-    soundTimer.current = setTimeout(() => setSoundPlaying(false), 3000);
-  };
 
   // ------------------------------------------------------------------ result
 
@@ -216,6 +158,7 @@ export function CaptureScreen({
    * a live view, so `<CameraView>` is keyed by it: replacing the id remounts the
    * view and the SDK comes back up on the new session.
    */
+  // ③ Scan again. The camera screen stays; only the session behind it changes.
   const scanAgain = async () => {
     setResult(null);
     setStatus(null);
@@ -238,13 +181,9 @@ export function CaptureScreen({
       <ScanCompleteScreen
         result={result}
         isCat={isCat}
-        askProfile={!!onSubmit && liveConfig.purpose === 'PET_PROFILE_REGISTRATION'}
-        draft={profileDraft}
-        onSubmit={
-          onSubmit
-            ? ((r, profile, onStep) =>
-                onSubmit(r, profile, liveConfig.captureSessionId, onStep)) as CaptureSubmit
-            : null
+        askName={liveConfig.purpose === 'PET_PROFILE_REGISTRATION'}
+        onSubmit={(r, profile, onStep) =>
+          onSubmit(r, profile, liveConfig.captureSessionId, onStep)
         }
         onScanAgain={scanAgain}
         onDone={onClose}
@@ -266,16 +205,9 @@ export function CaptureScreen({
           onDetectionStatus={next => {
             setStatus(next);
             setError(null);
-            // Anything past "no object" means detection is running, and a
-            // failure (a refused key, say) has to show rather than wait behind
-            // "Preparing" for a stats event.
-            if (next.type !== 'noObject') {
-              setDetectionReady(true);
-            }
           }}
-          // The SDK draws its own tracking marker; the raw boxes are here for
-          // hosts that want to draw their own.
-          onDetectionResult={() => {}}
+          // Delivered a few times a second; the first one that carries
+          // `detectionReadyAtMs` is the moment detection can start.
           onPerformanceStats={stats => {
             if (stats.detectionReadyAtMs != null && !detectionReady) {
               setDetectionReady(true);
@@ -287,17 +219,15 @@ export function CaptureScreen({
               );
             }
           }}
-          onDetectionFinished={finished => {
-            stopSound();
-            setResult(finished);
-          }}
+          onDetectionFinished={setResult}
         />
       )}
 
       <CameraMaskOverlay visible={maskVisible} guideMessage={guide} />
 
-      {/* The SDK needs a moment to load its models and open the camera. */}
-      {(status === null || !detectionReady) && !error ? (
+      {/* The SDK needs a moment to load its models. A failure is shown in the
+          banner instead, so a refused key does not hide behind "Preparing". */}
+      {!detectionReady && !failed && !error ? (
         <View style={styles.preparing} pointerEvents="none">
           <Text style={styles.preparingText}>Preparing the camera…</Text>
         </View>
@@ -313,26 +243,9 @@ export function CaptureScreen({
             <DetectionBanner message={banner.message} tone={banner.tone} />
           </View>
         ) : null}
-        {soundPanelOpen ? (
-          <View style={styles.panelSlot}>
-            <SoundSelectionPanel
-              value={sound}
-              options={soundOptions}
-              onSelect={next => {
-                setSound(next);
-                setSoundPanelOpen(false);
-              }}
-            />
-          </View>
-        ) : null}
         <CameraControls
           statusLabel={statusLabel}
           progress={progress}
-          isSoundPlaying={soundPlaying}
-          isSoundPanelOpen={soundPanelOpen}
-          onSoundTap={toggleSound}
-          onSoundLongPress={() => setSoundPanelOpen(true)}
-          onCloseSoundPanel={() => setSoundPanelOpen(false)}
           onSwitchCamera={() => camera.switchCamera()}
         />
       </View>
@@ -361,5 +274,4 @@ const styles = StyleSheet.create({
   top: {position: 'absolute', left: 0, right: 0, top: 0},
   bottom: {position: 'absolute', left: 0, right: 0, bottom: 0},
   bannerSlot: {paddingHorizontal: 24, paddingBottom: 12},
-  panelSlot: {paddingHorizontal: 24, paddingBottom: 12},
 });

@@ -3,14 +3,9 @@ plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'PetnowCameraExample'
 
-// Running the example from this repo links the SDK from the local Maven cache
-// (packages/android: `./gradlew :ui:publishToMavenLocal`). A published
-// @petify/react-native-camera-ui tarball bundles the AAR instead, so an app
-// that installs it from npm needs none of this.
 dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.PREFER_SETTINGS
     repositories {
-        mavenLocal()
         google()
         mavenCentral()
         maven { url("$rootDir/../node_modules/react-native/android") }

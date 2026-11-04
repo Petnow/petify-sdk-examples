@@ -19,9 +19,9 @@ Home ──▶ Capture guide ──▶ Camera ──▶ Result
 | [`react-native/`](react-native/README.md) | React Native 0.76, New Architecture | `@petify/react-native-camera-ui` 1.6.0 (npm) |
 
 The iOS and Android apps are minimal: the four screens above, nothing else. The React Native app
-is the full Petify-style demo — register, identify and verify, with a pet profile page and the
-whole server flow — with the same prewarm placement. The numbered comments ①–⑤ mark the same
-steps in all three; in React Native, ③ is "Scan again", which opens a new capture session
+also runs the server flow — register, identify and verify a pet — around the same screens, and
+prewarms one step earlier, as soon as the user picks what to scan. The numbered comments ①–⑤ mark
+the same steps in all three; in React Native, ③ is "Scan again", which opens a new capture session
 (a session backs one server job), and ⑤ is logged to the Metro console.
 
 ## What the examples show (SDK 1.6.0)
@@ -107,10 +107,12 @@ npm run android        # or: cd ios && pod install && cd .. && npm run ios -- --
 ## Capture sessions
 
 Every capture belongs to a capture session that **your server** creates with the Petify Server API and
-hands to the app as an ID. So that the examples run without a backend, they call the Server API
-themselves: the iOS and Android apps create an identification session (`DemoCaptureSessions`), and
-the React Native app runs the whole flow (`demo/demoBackend.ts`). Both are marked *example only* — a
-production app must not call the Server API, and must not hold a key that can.
+hands to the app as an ID. So that the examples run without a backend, they create it themselves:
+the iOS and Android apps open an identification session with their Client key
+(`DemoCaptureSessions` — one of the few calls a Client key may make), and the React Native app runs
+the whole flow with a Secret key (`demo/demoBackend.ts`). Both are marked *example only*: in
+production the server creates sessions and makes every other Server API call, and an app never holds
+a Secret key.
 
 All three run against the **production** backend, where Petify Console keys are issued. The iOS and
 Android apps create nothing in your account; **a registration in the React Native app is a real pet**

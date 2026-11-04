@@ -12,16 +12,17 @@
 import React from 'react';
 import {
   Image,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import type {Species} from '@petify/react-native-camera-ui';
 
-import {Petify, PetifyPrimaryButton} from './petifyUi';
-import {PageTitle, ScreenBar} from './petifyForm';
+import {Icon, MaterialIcon, Petify, PetifyPrimaryButton} from './petifyUi';
 
 interface GuideStep {
   eyebrow?: string;
@@ -117,10 +118,62 @@ export function ScanGuideScreen({
   );
 }
 
+/** Screen header with a back arrow. */
+function ScreenBar({title, onBack}: {title: string; onBack: () => void}) {
+  return (
+    <View style={styles.bar}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        hitSlop={8}
+        onPress={onBack}
+        style={styles.barBack}>
+        <Icon glyph={MaterialIcon.arrowBack} size={24} color={Petify.ink} />
+      </Pressable>
+      <Text style={styles.barTitle} numberOfLines={1}>
+        {title}
+      </Text>
+    </View>
+  );
+}
+
+/** Step eyebrow + headline + body. */
+function PageTitle({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <View style={styles.pageTitle}>
+      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+      <Text style={styles.headline}>{title}</Text>
+      {description ? <Text style={styles.description}>{description}</Text> : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: Petify.surface},
   flex: {flex: 1},
   body: {paddingBottom: 16},
   media: {alignSelf: 'center'},
   footer: {padding: 16},
+  bar: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    backgroundColor: Petify.surface,
+  },
+  barBack: {width: 32, height: 32, alignItems: 'center', justifyContent: 'center'},
+  barTitle: {flex: 1, fontSize: 18, fontFamily: Petify.fontBold, color: Petify.ink},
+  pageTitle: {paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12, gap: 6},
+  eyebrow: {fontSize: 14, fontFamily: Petify.fontBold, color: Petify.main},
+  headline: {fontSize: 22, lineHeight: 30, fontFamily: Petify.fontBold, color: Petify.ink},
+  description: {fontSize: 14, lineHeight: 21, fontFamily: Petify.font, color: Petify.inkMuted},
 });

@@ -7,7 +7,7 @@
  *
  * The strings are English; translate them for your users.
  */
-import type {DetectionFailureReason, DetectionStatus} from '@petify/react-native-camera-ui';
+import type {DetectionFailureReason} from '@petify/react-native-camera-ui';
 
 /** Every reason the SDK can reject a frame, with a plain-language message. */
 export const REASON_MESSAGES: Record<DetectionFailureReason, string> = {
@@ -33,26 +33,3 @@ export const REASON_MESSAGES: Record<DetectionFailureReason, string> = {
   FakeDetected: 'This looks like a photo or a screen. Scan a real pet.',
   Unexpected: 'Something unexpected happened. Please try again.',
 };
-
-/**
- * One line of guidance for the current status.
- *
- * `null` means the SDK has not reported anything yet — the camera is still
- * opening, which takes a moment on lower-end devices.
- */
-export function guideMessage(status: DetectionStatus | null): string {
-  switch (status?.type) {
-    case 'noObject':
-      return 'Fit your pet in the frame.';
-    case 'processing':
-      return 'Scanning…';
-    case 'detected':
-      return 'Got it. Hold still.';
-    case 'failed':
-      return REASON_MESSAGES[status.reason] ?? status.reason;
-    case 'finished':
-      return 'Scan complete';
-    default:
-      return 'Starting the camera…';
-  }
-}

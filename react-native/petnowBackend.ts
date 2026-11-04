@@ -1,16 +1,17 @@
 /**
- * Where your app ends and PetNow begins.
+ * Where your app ends and the Petify Server API begins.
  *
- * The SDK runs on the device and gives you images. Everything else — creating a
- * pet, opening a capture session, uploading, registering, identifying,
- * verifying — is a **server** conversation, authenticated with your tenant API
- * key. That key must live on your server: anything shipped in an app can be
- * extracted from it.
+ * The SDK runs on the device and gives you images. Creating a pet,
+ * registering, identifying and verifying are **server** calls, authenticated
+ * with a Secret API key. That key must live on your server: anything shipped
+ * in an app can be extracted from it. (The app itself holds a Client key, which
+ * the SDK uses and which can open a capture session and upload, but nothing
+ * more.)
  *
- * So your app talks to *your* backend, and your backend to PetNow. This file is
+ * So your app talks to *your* backend, and your backend to Petify. This file is
  * that seam; `YourServerBackend` is the shape to copy. (`demo/demoBackend.ts`
- * is a demo implementation that calls PetNow directly so the example can run
- * without a server. Do not ship that.)
+ * is a demo implementation that calls Petify directly with a Secret key so the
+ * example can run without a server. Do not ship that.)
  */
 import type {CameraResult, DetectionPurpose, Species} from '@petify/react-native-camera-ui';
 
@@ -45,7 +46,7 @@ export interface PetnowBackend {
 
   /**
    * `POST /v2/capture-sessions` — returns the session UUID the SDK needs. A
-   * registration or verification session must carry `petId`, or PetNow answers
+   * registration or verification session must carry `petId`, or the server answers
    * `PETNOWB2B20011` (NoPetIdCaptureSessionError).
    *
    * Call this **once per capture attempt**, not once per pet. A session backs
@@ -82,10 +83,10 @@ export interface PetnowBackend {
 /**
  * The shape to copy into your app: one call per endpoint you expose.
  *
- * Your server holds the PetNow API key and makes the PetNow calls noted in each
+ * Your server holds the Secret key and makes the Petify calls noted in each
  * method. What your own endpoints look like is up to you — the point is that
- * the app never sees the key, and the PetNow call order stays on the server
- * where you can test it.
+ * the app never sees the key, and the call order stays on the server where you
+ * can test it.
  */
 export class YourServerBackend implements PetnowBackend {
   constructor(private readonly baseUrl: string) {}

@@ -13,20 +13,20 @@ import {
 import {Icon, MaterialIcon, Petify, withAlpha} from './petifyUi';
 
 /**
- * Camera-screen chrome ported from the Petify web playground's
- * `@petify/camera-ui` components: the circular mask, the guide callout, the top
- * bar, the bottom control bar, the sound panel and the tips sheet.
+ * Camera-screen chrome: the circular mask, the guide callout, the top bar, the
+ * bottom control bar and the tips sheet. None of it is part of the SDK — it is
+ * this app's design, and yours will differ.
  *
  * The camera preview and the detection tracker are drawn by the native SDK
  * inside `<CameraView>`; everything here sits on top of it.
  */
 
-/** Tone of the floating detection banner (`DetectionOverlay` MESSAGE_STYLES). */
+/** Tone of the floating detection banner. */
 export type BannerTone = 'start' | 'success' | 'error';
 
 /**
  * Dark scrim with a circular cut-out and a brand ring, plus the guide callout
- * under the circle. Mirrors `CameraMaskOverlay`.
+ * under the circle.
  *
  * The cut-out is a border trick rather than a painted path: a circle whose
  * border is thicker than the screen fills everything outside it, which is the
@@ -90,7 +90,7 @@ export function CameraMaskOverlay({
   );
 }
 
-/** Brand-tinted guide bubble under the mask circle. Mirrors `CameraCallout`. */
+/** Brand-tinted guide bubble under the mask circle. */
 export function CameraCallout({message}: {message: string}) {
   return (
     <View style={styles.callout}>
@@ -99,7 +99,7 @@ export function CameraCallout({message}: {message: string}) {
   );
 }
 
-/** Close (left) and tips (right). Mirrors `CameraTopBar`. */
+/** Close (left) and tips (right). */
 export function CameraTopBar({
   onClose,
   onTips,
@@ -121,47 +121,21 @@ export function CameraTopBar({
   );
 }
 
-/**
- * Bottom bar: sound guide, status label (+ capture progress), camera switch.
- * Mirrors `CameraControls`.
- */
+/** Bottom bar: status label (+ capture progress) and the camera switch. */
 export function CameraControls({
   statusLabel,
   progress,
-  isSoundPlaying,
-  isSoundPanelOpen,
-  onSoundTap,
-  onSoundLongPress,
-  onCloseSoundPanel,
   onSwitchCamera,
 }: {
   statusLabel: string;
   progress: number;
-  isSoundPlaying: boolean;
-  isSoundPanelOpen: boolean;
-  onSoundTap: () => void;
-  onSoundLongPress: () => void;
-  onCloseSoundPanel: () => void;
   onSwitchCamera: () => void;
 }) {
   return (
     <SafeAreaView style={styles.controlsSafe}>
       <View style={styles.controls}>
-        {isSoundPanelOpen ? (
-          <RoundButton
-            label="Close sound panel"
-            glyph={MaterialIcon.close}
-            onPress={onCloseSoundPanel}
-          />
-        ) : (
-          <RoundButton
-            label="Sound guide"
-            glyph={isSoundPlaying ? MaterialIcon.volumeUp : MaterialIcon.volumeUpOutlined}
-            active={isSoundPlaying}
-            onPress={onSoundTap}
-            onLongPress={onSoundLongPress}
-          />
-        )}
+        {/* Balances the switch button so the label stays centred. */}
+        <View style={styles.roundButtonSpacer} />
         <View style={styles.controlsCenter}>
           <Text numberOfLines={2} style={styles.statusLabel}>
             {statusLabel}
@@ -186,66 +160,25 @@ function RoundButton({
   glyph,
   label,
   onPress,
-  onLongPress,
-  active = false,
 }: {
   glyph: string;
   label: string;
   onPress: () => void;
-  onLongPress?: () => void;
-  active?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      onLongPress={onLongPress}
-      style={[styles.roundButton, active && styles.roundButtonOn]}>
+      style={styles.roundButton}>
       <Icon glyph={glyph} size={28} color="#FFFFFF" />
     </Pressable>
   );
 }
 
 /**
- * Floating dark radio list above the control bar. Mirrors
- * `SoundSelectionPanel`; long-press the sound button to open it.
- */
-export function SoundSelectionPanel<T extends string>({
-  value,
-  options,
-  onSelect,
-}: {
-  value: T;
-  options: {value: T; label: string}[];
-  onSelect: (value: T) => void;
-}) {
-  return (
-    <View style={styles.soundPanel}>
-      {options.map(option => {
-        const selected = option.value === value;
-        return (
-          <Pressable
-            key={option.value}
-            accessibilityRole="radio"
-            accessibilityState={{selected}}
-            onPress={() => onSelect(option.value)}
-            style={styles.soundRow}>
-            <View style={[styles.radio, selected && styles.radioOn]}>
-              {selected ? <View style={styles.radioDot} /> : null}
-            </View>
-            <Text style={styles.soundLabel}>{option.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-/**
- * White capture-feedback banner. Mirrors `DetectionOverlay`'s message banner,
- * which on the web follows the tracked nose; here it sits above the controls
- * because the native SDK owns the tracker.
+ * White capture-feedback banner. It sits above the controls; the tracking
+ * marker on the pet is drawn by the SDK itself.
  */
 export function DetectionBanner({
   message,
@@ -268,7 +201,7 @@ export function DetectionBanner({
   );
 }
 
-/** Tips sheet behind the `?` button. Mirrors `ScanGuideSheet`. */
+/** Tips sheet behind the `?` button. */
 export function ScanGuideSheet({
   visible,
   isCat,
@@ -294,11 +227,6 @@ export function ScanGuideSheet({
       glyph: MaterialIcon.centerFocusStrong,
       title: 'Hold still',
       body: 'Motion blur is the most common reason a frame is rejected.',
-    },
-    {
-      glyph: MaterialIcon.volumeUpOutlined,
-      title: 'Use a sound',
-      body: 'A rustle or a squeak makes most pets look straight at the lens.',
     },
   ];
 
@@ -386,39 +314,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Petify.controlIconBg,
   },
-  roundButtonOn: {backgroundColor: Petify.controlIconActive},
-  soundPanel: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: Petify.maxUiWidth - 48,
-    borderRadius: 12,
-    backgroundColor: Petify.sheet,
-    paddingVertical: 8,
-  },
-  soundRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioOn: {borderColor: Petify.control},
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Petify.control,
-  },
-  soundLabel: {color: '#FFFFFF', fontSize: 15, fontFamily: Petify.font},
+  roundButtonSpacer: {width: 50, height: 50},
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

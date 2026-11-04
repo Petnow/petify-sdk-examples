@@ -13,7 +13,6 @@ import {
 
 import {Icon, MaterialIcon, PetAvatar, Petify} from '../ui/petifyUi';
 import {petLabel, type DemoPet} from './demoBackend';
-import type {PetProfileStore} from './petProfiles';
 
 /**
  * Picks a registered pet for a 1:1 verification (`GET /v2/pets`).
@@ -22,21 +21,18 @@ import type {PetProfileStore} from './petProfiles';
  * captures that were never finished (the capture session has to be scoped to a
  * pet before the camera opens), and nothing can be verified against them.
  *
- * Pets registered on this device also carry a local profile — name and photo —
- * and can be deleted from here. Deleting removes the pet on the server, which
- * takes its fingerprints with it.
+ * Pets this example registered can be deleted from here. Deleting removes the
+ * pet on the server, which takes its fingerprints with it.
  */
 export function PetPickerSheet({
   visible,
   loadPets,
-  profiles,
   onDelete,
   onPick,
   onClose,
 }: {
   visible: boolean;
   loadPets: () => Promise<DemoPet[]>;
-  profiles: PetProfileStore;
   onDelete: (pet: DemoPet) => Promise<void>;
   onPick: (pet: DemoPet) => void;
   onClose: () => void;
@@ -60,12 +56,10 @@ export function PetPickerSheet({
   }, [visible, reload]);
 
   const confirmDelete = (pet: DemoPet) => {
-    const name = profiles.get(pet.id)?.name ?? petLabel(pet);
     Alert.alert(
-      `Delete ${name}?`,
-      'This deletes the pet on the PetNow server, including the fingerprints ' +
-        'registered for it, and removes the profile from this device. It ' +
-        'cannot be undone.',
+      `Delete ${petLabel(pet)}?`,
+      'This deletes the pet on the Petify server, including the fingerprints ' +
+        'registered for it. It cannot be undone.',
       [
         {text: 'Cancel', style: 'cancel'},
         {
@@ -114,7 +108,6 @@ export function PetPickerSheet({
             keyExtractor={pet => pet.id}
             contentContainerStyle={styles.list}
             renderItem={({item: pet}) => {
-              const profile = profiles.get(pet.id);
               const busy = deleting === pet.id;
               return (
                 <Pressable
@@ -122,16 +115,16 @@ export function PetPickerSheet({
                   disabled={busy}
                   onPress={() => onPick(pet)}
                   style={styles.row}>
-                  <PetAvatar imagePath={profile?.imagePath} size={48} />
+                  <PetAvatar size={48} />
                   <View style={styles.rowCopy}>
-                    <Text style={styles.rowTitle}>{profile?.name ?? petLabel(pet)}</Text>
+                    <Text style={styles.rowTitle}>{petLabel(pet)}</Text>
                     <Text numberOfLines={1} style={styles.rowSubtitle}>
                       {pet.id}
                     </Text>
                   </View>
-                  {/* Only pets registered here can be deleted from the example
-                      — everything else on the tenant is somebody else's. */}
-                  {profile ? (
+                  {/* Only pets this example registered can be deleted here —
+                      the rest of the account is not the example's to remove. */}
+                  {pet.fromExample ? (
                     busy ? (
                       <ActivityIndicator size="small" color={Petify.inkFaint} />
                     ) : (

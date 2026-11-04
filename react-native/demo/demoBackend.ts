@@ -11,15 +11,16 @@ import type {
  * this is the implementation that skips your server so the example runs on its
  * own.
  *
- * The tenant API key authenticates your backend to PetNow; shipping it in a
- * mobile app exposes it. The example calls the B2B API straight from the device
- * only so the whole flow (register / identify / verify) can be tried without
- * standing up a backend first.
+ * It needs a **Secret** API key: registration, identification, verification
+ * and the pet list are Server API calls, which a Client (app) key may not make.
+ * A Secret key belongs on your server — shipping it in an app exposes it. The
+ * example calls the Server API straight from the device only so the whole flow
+ * (register / identify / verify) can be tried without standing up a backend.
  *
- * The endpoints used here are the PetNow B2B v2 contract:
+ * The endpoints used here are the Petify Server API v2:
  * ```
  * POST /v2/capture-sessions               {species, purpose[, petId]} -> {data:{id}}
- * POST /v2/pets                           {species}                   -> {data:{id}}
+ * POST /v2/pets                           {species, metadata}         -> {data:{id}}
  * POST /v2/fingerprints:upload?sessionId=  multipart "file"           -> {data:{id}}
  * POST /v2/appearances:upload?sessionId=   multipart "file"           -> {data:{id}}
  * POST /v2/pets/{petId}:addFingerprints   {sessionId}                 -> {data:{jobId}}
@@ -43,21 +44,28 @@ export class DemoBackend implements PetnowBackend {
 
   // -- Sessions and pets ------------------------------------------------------
 
-  /** `POST /v2/pets` — the pet record fingerprints are attached to. */
+  /**
+   * `POST /v2/pets` — the pet record fingerprints are attached to. Tagged as
+   * this example's, so the example only ever offers to delete its own pets.
+   */
   async createPet(species: Species): Promise<string> {
-    const data = await this.postJson('/v2/pets', {species});
+    const data = await this.postJson('/v2/pets', {
+      species,
+      metadata: JSON.stringify(EXAMPLE_TAG),
+    });
     return data.id as string;
   }
 
   /**
    * `PATCH /v2/pets/{petId}` — the pet's free-form metadata, where this demo
-   * keeps the profile name. `metadata` is a JSON **string** on the wire.
+   * keeps the name. `metadata` is a JSON **string** on the wire, and a PATCH
+   * replaces it whole, so the tag is written again.
    */
-  async updateMetadata(petId: string, metadata: Record<string, unknown>): Promise<void> {
+  async setName(petId: string, name: string): Promise<void> {
     const response = await fetch(this.url(`/v2/pets/${petId}`), {
       method: 'PATCH',
       headers: {...this.headers, 'Content-Type': 'application/json'},
-      body: JSON.stringify({metadata: JSON.stringify(metadata)}),
+      body: JSON.stringify({metadata: JSON.stringify({...EXAMPLE_TAG, name})}),
     });
     await this.envelope(response);
   }
@@ -98,7 +106,7 @@ export class DemoBackend implements PetnowBackend {
     }
   }
 
-  /** `GET /v2/pets` — the tenant's pets, newest first as returned by the server. */
+  /** `GET /v2/pets` — the account's pets, newest first as returned by the server. */
   async listPets(): Promise<DemoPet[]> {
     const response = await fetch(this.url('/v2/pets'), {headers: this.headers});
     const data = await this.envelope(response);
@@ -129,7 +137,7 @@ export class DemoBackend implements PetnowBackend {
     return (data.status as string) ?? 'UNKNOWN';
   }
 
-  /** 1:N search across the tenant's pets. */
+  /** 1:N search across the account's pets. */
   async identify(sessionId: string): Promise<PetnowCandidate[]> {
     const jobId = await this.startJob('/v2/pets:identify', sessionId);
     const data = await this.pollJob(`/v2/identification-jobs/${jobId}`);
@@ -241,10 +249,18 @@ export class DemoBackend implements PetnowBackend {
   }
 }
 
+/** What `createPet` writes into `metadata`, and `fromExample` looks for. */
+const EXAMPLE_TAG = {createdBy: 'petify-sdk-example'};
+
 export interface DemoPet {
   id: string;
   name?: string;
   species?: string;
+  /**
+   * Registered by this example. Only these are offered for deletion: the key
+   * may belong to an account with real pets in it.
+   */
+  fromExample: boolean;
   /**
    * False until `:addFingerprints` succeeds. A pet without fingerprints can not
    * be verified or identified against — the record exists because the capture
@@ -254,35 +270,32 @@ export interface DemoPet {
   hasFingerprint: boolean;
 }
 
-/** A pet's display name: the profile name, else a short form of its id. */
+/** A pet's display name: its name, else a short form of its id. */
 export function petLabel(pet: DemoPet): string {
   return pet.name ?? `${pet.id.split('-')[0]}…`;
 }
 
 function toDemoPet(json: Record<string, unknown>): DemoPet {
+  const metadata = decodeMetadata(json.metadata);
+  const name = metadata.name;
   return {
     id: json.id as string,
-    name: metadataName(json.metadata),
+    name: typeof name === 'string' && name.length > 0 ? name : undefined,
     species: json.species as string | undefined,
+    fromExample: metadata.createdBy === EXAMPLE_TAG.createdBy,
     hasFingerprint: json.hasFingerprint === true,
   };
 }
 
 /** `metadata` comes back as a JSON string (`"{}"` when empty). */
-function metadataName(metadata: unknown): string | undefined {
+function decodeMetadata(metadata: unknown): Record<string, unknown> {
   let decoded = metadata;
   if (typeof decoded === 'string') {
     try {
       decoded = JSON.parse(decoded);
     } catch {
-      return undefined;
+      return {};
     }
   }
-  if (decoded && typeof decoded === 'object') {
-    const name = (decoded as Record<string, unknown>).name;
-    if (typeof name === 'string' && name.length > 0) {
-      return name;
-    }
-  }
-  return undefined;
+  return decoded && typeof decoded === 'object' ? (decoded as Record<string, unknown>) : {};
 }

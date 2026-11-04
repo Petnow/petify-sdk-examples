@@ -12,9 +12,9 @@
  * .env would leave the previous key in the bundle and the failure looks like
  * a server problem.
  *
- * This is a convenience for running a sample. A shipping app should not carry
- * an API key in its bundle: fetch it from your own server at runtime and hand
- * it to `usePetnowCamera({apiKey})`, the same way this file's value reaches it.
+ * This is a convenience for running a sample, which needs a Secret key for its
+ * demo backend. A shipping app carries a Client key (app) at most — never a
+ * Secret key — and leaves the Server API to its own server.
  */
 const crypto = require('crypto');
 const fs = require('fs');
@@ -27,14 +27,14 @@ const ENV_FILE = path.join(__dirname, '.env');
 
 /**
  * Reads .env into process.env. A variable already set in the shell wins, so
- * `PETIFY_API_KEY=<other tenant> npm start` still overrides the file.
+ * `PETIFY_API_KEY=<another key> npm start` still overrides the file.
  */
 function loadEnv() {
   let text = '';
   try {
     text = fs.readFileSync(ENV_FILE, 'utf8');
   } catch {
-    // No .env: the key gets typed on the first screen instead.
+    // No .env: the home screen says the key is missing.
   }
   for (const line of text.split('\n')) {
     const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
