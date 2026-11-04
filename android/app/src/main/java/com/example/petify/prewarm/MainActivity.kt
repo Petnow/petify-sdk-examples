@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +16,8 @@ import java.util.UUID
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Draw behind the system bars; the screens keep clear of them with safeDrawingPadding().
+        enableEdgeToEdge()
         setContent { MaterialTheme { App() } }
     }
 }
@@ -30,8 +33,12 @@ sealed interface Route {
 private fun App() {
     val backStack = remember { mutableStateListOf<Route>(Route.Home) }
     val atHome = backStack.size == 1
+    val goHome = { backStack.removeRange(1, backStack.size) }
 
-    BackHandler(enabled = !atHome) { backStack.removeAt(backStack.lastIndex) }
+    BackHandler(enabled = !atHome) {
+        // Back from the result goes home, like Done (iOS hides Back there).
+        if (backStack.last() is Route.Result) goHome() else backStack.removeAt(backStack.lastIndex)
+    }
 
     // ④ Release what prewarm prepared only when the user leaves the capture flow.
     //    Not when the guide screen goes away: that also happens on the way *into* the
@@ -46,12 +53,14 @@ private fun App() {
         Route.Guide -> GuideScreen(onOpenCamera = { backStack.add(Route.Camera(it)) })
         is Route.Camera -> CameraScreen(
             captureSessionId = route.captureSessionId,
-            onCaptured = { backStack.add(Route.Result(it)) },
+            // The result replaces the camera: its capture session is used up, so
+            // nothing should lead back to it.
+            onCaptured = { backStack[backStack.lastIndex] = Route.Result(it) },
             onClose = { backStack.removeAt(backStack.lastIndex) },
         )
         is Route.Result -> ResultScreen(
             summary = route.summary,
-            onDone = { backStack.removeRange(1, backStack.size) },
+            onDone = goHome,
         )
     }
 }

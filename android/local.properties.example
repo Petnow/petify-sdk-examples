@@ -1,3 +1,7 @@
 # Copy to local.properties (git-ignored) and fill in.
-sdk.dir=/path/to/Android/sdk
+
+# Optional. Gradle finds the Android SDK through ANDROID_HOME; uncomment only if
+# that is not set. A wrong path here overrides ANDROID_HOME.
+# sdk.dir=/path/to/Android/sdk
+
 petnow.apiKey=YOUR_PETNOW_API_KEY

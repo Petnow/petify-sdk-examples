@@ -24,7 +24,7 @@ fun HomeScreen(onStart: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Spacer(Modifier.weight(1f))
-        Text("Petnow SDK prewarm example", style = MaterialTheme.typography.headlineSmall)
+        Text("Petify SDK prewarm example", style = MaterialTheme.typography.headlineSmall)
         Text(
             "Home → capture guide (prewarm) → camera → result. Nothing is prepared until you start.",
             textAlign = TextAlign.Center,

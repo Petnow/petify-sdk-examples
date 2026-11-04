@@ -54,16 +54,55 @@ The SDK is **not** in this repository. Each app downloads it the way your own ap
 the [Petify docs](https://docs.petnow.io/petify/docs/sdk):
 
 1. **Petify Console** ([guide](https://docs.petnow.io/petify/docs/petify-console)) — sign up, register a
-   payment method, then in **My Page** create an **API Key** (the SDK licence) and issue the
-   **AWS CodeArtifact Key** (the credentials that download the SDK).
+   payment method, then in **Integration → API & SDK** (older consoles: **My Page**) create an
+   **API Key** (the SDK licence) and an **AWS CodeArtifact Key** (the credentials that download the SDK;
+   shown only once, so save them). The key type depends on the app:
+
+   | App | API key type | Why |
+   | --- | --- | --- |
+   | iOS, Android | **Client key (app)** | They only use the SDK and create a capture session. Needs SDK 1.5.0+. |
+   | React Native | **Secret key (server)** | Its demo backend calls the Server API (register, identify, verify). Local testing only — never ship an app with a Secret key. |
+
 2. **Download the SDK** with the CodeArtifact Key, as the platform's Getting Started guide describes:
    [iOS](https://docs.petnow.io/petify/docs/sdk/ios/getting-started) (Swift Package Manager),
    [Android](https://docs.petnow.io/petify/docs/sdk/android/getting-started) (Gradle),
    [React Native](https://docs.petnow.io/petify/docs/sdk/react-native/getting-started) (npm).
-3. **Set your API Key** in the app's git-ignored local file.
+3. **Set your API Key** in the app's git-ignored local file. The setting is named differently per platform:
+   `PETNOW_API_KEY` in `ios/Config/Secrets.xcconfig`, `petnow.apiKey` in `android/local.properties`,
+   `PETIFY_API_KEY` in `react-native/.env`.
 4. **Build and run** on a device.
 
-Each platform's README walks through these four steps with the exact commands.
+Each platform's README walks through these four steps with the exact commands, including which Console
+value goes into which environment variable.
+
+### Quick build
+
+Once the CodeArtifact variables from step 2 of the platform README are exported:
+
+```bash
+# iOS — details in ios/README.md
+cd ios
+./scripts/setup-registry.sh
+cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig   # set PETNOW_API_KEY
+open PrewarmExample.xcworkspace                              # run on your iPhone
+```
+
+```bash
+# Android — CODEARTIFACT_URL and CODEARTIFACT_AUTH_TOKEN as in android/README.md
+cd android
+cp local.properties.example local.properties   # set petnow.apiKey
+./gradlew :app:installDebug
+```
+
+```bash
+# React Native — details in react-native/README.md
+cd react-native
+aws codeartifact login --tool npm --namespace petify --domain "$PETNOW_CODEARTIFACT_DOMAIN" \
+  --domain-owner "$PETNOW_AWS_ACCOUNT_ID" --repository petnow-npm --region "$AWS_DEFAULT_REGION"
+npm install
+cp .env.example .env   # set PETIFY_API_KEY
+npm run android        # or: cd ios && pod install && cd .. && npm run ios -- --device
+```
 
 ## Capture sessions
 
@@ -83,7 +122,7 @@ Android apps create nothing in your account; **a registration in the React Nativ
   `react-native/.env` and the Swift registry configuration are git-ignored; the repository only
   contains `*.example` templates.
 - The examples compile the API key into the app for convenience. Anyone with the app binary can read it
-  back out. See [API key security](https://docs.petnow.io/petify/docs/sdk/ios/getting-started) in the docs
+  back out. See [API key security](https://docs.petnow.io/petify/docs/sdk/ios/getting-started#api-key-security) in the docs
   before you ship.
 - To report a security issue, see [SECURITY.md](SECURITY.md).
 

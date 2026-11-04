@@ -1,7 +1,10 @@
 package com.example.petify.prewarm
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -43,12 +46,12 @@ import io.petnow.callback.PetnowCameraDetectionListenerV2
 import io.petnow.ui.CameraController
 import io.petnow.ui.CameraResult
 import io.petnow.ui.CameraView
-import io.petnow.ui.PetnowUIError
 import io.petnow.ui.config.DetectionConfiguration
 import io.petnow.ui.config.DetectionPurpose
 import io.petnow.ui.config.PetSpecies
 import io.petnow.ui.status.DetectionFailureReason
 import io.petnow.ui.status.DetectionStatus
+import kotlinx.coroutines.CancellationException
 import java.util.UUID
 
 @Composable
@@ -66,6 +69,7 @@ fun CameraScreen(
     var status by remember { mutableStateOf<DetectionStatus>(DetectionStatus.NoObject) }
     var showRetry by remember { mutableStateOf(false) }
     var startError by remember { mutableStateOf<String?>(null) }
+    var permissionDenied by remember { mutableStateOf(false) }
 
     var hasPermission by remember {
         mutableStateOf(
@@ -77,7 +81,7 @@ fun CameraScreen(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         hasPermission = granted
-        if (!granted) startError = "Camera permission is required to scan."
+        if (!granted) permissionDenied = true
     }
 
     DisposableEffect(controller) {
@@ -123,11 +127,14 @@ fun CameraScreen(
                 DetectionConfiguration(species = PetSpecies.DOG, purpose = DetectionPurpose.PET_IDENTIFICATION),
                 captureSessionId,
             )
-            controller.startDetection()
-        } catch (e: PetnowUIError) {
+            // startDetection() reports failure in its Result rather than throwing.
+            controller.startDetection().onFailure { startError = it.message ?: it.toString() }
+        } catch (e: CancellationException) {
+            throw e // the screen left; nothing to report
+        } catch (e: Exception) {
             // An invalid key, a missing permission or a camera that will not open
             // surfaces here — never from prewarm.
-            startError = e.message
+            startError = e.message ?: e.toString()
         }
     }
 
@@ -173,7 +180,28 @@ fun CameraScreen(
             title = { Text("Capture failed") },
             confirmButton = {
                 // ③ Retry with startDetection(): the camera stays open, so there is no second start.
-                TextButton(onClick = { showRetry = false; controller.startDetection() }) { Text("Try again") }
+                TextButton(onClick = {
+                    showRetry = false
+                    controller.startDetection().onFailure { startError = it.message ?: it.toString() }
+                }) { Text("Try again") }
+            },
+            dismissButton = { TextButton(onClick = onClose) { Text("Leave") } },
+        )
+    }
+    if (permissionDenied) {
+        // Once the user has denied it twice, Android stops asking; only the app's
+        // settings page can grant it.
+        AlertDialog(
+            onDismissRequest = onClose,
+            title = { Text("Camera permission needed") },
+            text = { Text("Allow camera access to scan a nose print.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+                    )
+                    onClose()
+                }) { Text("Open settings") }
             },
             dismissButton = { TextButton(onClick = onClose) { Text("Leave") } },
         )

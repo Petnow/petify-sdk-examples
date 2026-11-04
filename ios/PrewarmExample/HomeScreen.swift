@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct HomeView: View {
+struct HomeScreen: View {
     let onStart: () -> Void
 
     var body: some View {
@@ -9,7 +9,7 @@ struct HomeView: View {
             Image(systemName: "pawprint.circle.fill")
                 .font(.system(size: 72))
                 .foregroundStyle(.tint)
-            Text("Petnow SDK prewarm example")
+            Text("Petify SDK prewarm example")
                 .font(.title2.bold())
             Text("Home → capture guide (prewarm) → camera → result. Nothing is prepared until you start.")
                 .multilineTextAlignment(.center)

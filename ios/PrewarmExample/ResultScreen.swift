@@ -7,9 +7,11 @@ struct CaptureSummary: Hashable {
     let firstFrameMs: Int?
 }
 
-struct ResultView: View {
+struct ResultScreen: View {
     let summary: CaptureSummary
     let onDone: () -> Void
+    // Decoded once when the screen appears, not on every render of body.
+    @State private var preview: UIImage?
 
     var body: some View {
         List {
@@ -27,14 +29,15 @@ struct ResultView: View {
             } footer: {
                 Text("Upload the images to your server, which sends them to Petify with the capture session ID.")
             }
-            if let first = summary.fingerprintImages.first, let image = UIImage(contentsOfFile: first.path) {
-                Image(uiImage: image)
+            if let preview {
+                Image(uiImage: preview)
                     .resizable()
                     .scaledToFit()
                     .frame(maxHeight: 200)
             }
         }
         .navigationTitle("Result")
+        .task { preview = summary.fingerprintImages.first.flatMap { UIImage(contentsOfFile: $0.path) } }
         .navigationBarBackButtonHidden()
         .toolbar { Button("Done", action: onDone) }
     }

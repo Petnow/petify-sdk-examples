@@ -1,13 +1,13 @@
 # iOS example (SwiftUI)
 
-Home → capture guide (**prewarm**) → camera → result, using the Petnow iOS SDK (`petnow.ui`) 1.6.0.
+Home → capture guide (**prewarm**) → camera → result, using the Petify iOS SDK (`petnow.ui`) 1.6.0.
 The SDK is not in this repository: you download it from Petnow's AWS CodeArtifact registry with your
 own credentials, exactly as the [iOS Getting Started](https://docs.petnow.io/petify/docs/sdk/ios/getting-started)
 guide describes.
 
 | File | What it shows |
 | --- | --- |
-| `PrewarmExample/GuideView.swift` | ① `CameraController.prewarm(licenseInfo:)` in `onAppear` |
+| `PrewarmExample/GuideScreen.swift` | ① `CameraController.prewarm(licenseInfo:)` in `onAppear` |
 | `PrewarmExample/CameraScreen.swift` | ② guidance from `detectionStatus` after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
 | `PrewarmExample/PrewarmExampleApp.swift` | ④ `CameraController.releasePrewarmed()` when the navigation path returns home |
 | `PrewarmExample/DemoCaptureSessions.swift` | creates a capture session — **example only**, your server does this |
@@ -15,27 +15,49 @@ guide describes.
 ## Requirements
 
 - Xcode 16 or later, and an iPhone on iOS 16.4+ (the simulator has no camera)
-- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (2.15 or later)
 - A [Petify Console](https://docs.petnow.io/petify/docs/petify-console) account with a payment method registered
+
+Run the commands below from this folder (`cd ios`).
 
 ## 1. Issue your keys in the Petify Console
 
-In **My Page** ([guide](https://docs.petnow.io/petify/docs/petify-console)):
+In **Integration → API & SDK** ([guide](https://docs.petnow.io/petify/docs/petify-console); older consoles
+had these under **My Page**):
 
-1. **API Key Management → create an API Key.** This is the SDK licence (`LicenseInfo(apiKey:)`).
-2. **Issue the AWS CodeArtifact Key.** These credentials download the SDK.
+1. **API Key Management → Create New API Key**, key type **Client key (app)**. This is the SDK licence
+   (`LicenseInfo(apiKey:)`). A Client key is enough here: the app only uses the SDK and creates a capture
+   session. Client keys need SDK 1.5.0 or later. Keep Secret keys (server) out of app code. The key is
+   shown only once.
+2. **AWS CodeArtifact Key Management → Create New Key.** These credentials download the SDK. The popup
+   shows them **only once** — save them before you close it.
 
 ## 2. Download the SDK (Swift Package Manager, AWS CodeArtifact)
 
-Set the values the console shows for the CodeArtifact Key:
+Set the values from the CodeArtifact popup under these names:
+
+| Console popup | Environment variable |
+| --- | --- |
+| Access Key ID | `AWS_ACCESS_KEY_ID` |
+| Secret Access Key | `AWS_SECRET_ACCESS_KEY` |
+| AWS Region | `AWS_DEFAULT_REGION` |
+| CodeArtifact Domain | `PETNOW_CODEARTIFACT_DOMAIN` |
+| AWS Account ID | `PETNOW_AWS_ACCOUNT_ID` |
+| iOS SDK Repository | `PETNOW_IOS_SDK_REPOSITORY` |
+
+The popup's **Copy All** button uses other names (`SDK_CONFIG_AWS_REGION`, `SDK_CONFIG_CODEARTIFACT_DOMAIN`, …)
+and no `export`, so rename the values as above rather than pasting them as they are.
 
 ```bash
-export AWS_ACCESS_KEY_ID=<from Petify Console>
-export AWS_SECRET_ACCESS_KEY=<from Petify Console>
-export AWS_DEFAULT_REGION=<from Petify Console>
-export PETNOW_CODEARTIFACT_DOMAIN=<from Petify Console>
-export PETNOW_AWS_ACCOUNT_ID=<from Petify Console>
-export PETNOW_IOS_SDK_REPOSITORY=<from Petify Console>
+# So an AWS profile or session already in your shell does not override the Console keys.
+unset AWS_PROFILE AWS_SESSION_TOKEN
+
+export AWS_ACCESS_KEY_ID=<Access Key ID>
+export AWS_SECRET_ACCESS_KEY=<Secret Access Key>
+export AWS_DEFAULT_REGION=<AWS Region>
+export PETNOW_CODEARTIFACT_DOMAIN=<CodeArtifact Domain>
+export PETNOW_AWS_ACCOUNT_ID=<AWS Account ID>
+export PETNOW_IOS_SDK_REPOSITORY=<iOS SDK Repository>
 ```
 
 This app is an Xcode workspace, so follow **Option B: Xcode Workspace** of the guide. The script below
@@ -55,7 +77,7 @@ resolve `petnow.ui`. `registries.json` is git-ignored.
 cp Config/Secrets.xcconfig.example Config/Secrets.xcconfig
 ```
 
-Edit `Config/Secrets.xcconfig`: `PETNOW_API_KEY` (the API Key from step 1), `EXAMPLE_TEAM_ID`, and a
+Edit `Config/Secrets.xcconfig`: `PETNOW_API_KEY` (the Client key from step 1), `EXAMPLE_TEAM_ID`, and a
 bundle ID you can sign. The file is git-ignored.
 
 ## 4. Build and run

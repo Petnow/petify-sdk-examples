@@ -15,7 +15,7 @@ struct CameraScreen: View {
         self.onCaptured = onCaptured
         _controller = StateObject(wrappedValue: CameraController(
             configuration: DetectionConfiguration(species: .dog, purpose: .petIdentification),
-            licenseInfo: AppConfig.license!   // HomeView does not start the flow without a key
+            licenseInfo: AppConfig.license!   // HomeScreen does not start the flow without a key
         ))
     }
 

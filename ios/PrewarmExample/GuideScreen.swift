@@ -3,7 +3,7 @@ import PetnowUI
 
 /// The screen before the camera: the user reads it for a few seconds, which is
 /// exactly the time prewarm needs.
-struct GuideView: View {
+struct GuideScreen: View {
     let onStartCamera: (UUID) -> Void
     @State private var session: Result<UUID, Error>?
 
@@ -25,10 +25,13 @@ struct GuideView: View {
             //    screen only has to open the camera. Fire and forget: it never throws,
             //    and a camera start that arrives while it is still running joins it.
             //    No species — an engine prepared without one serves whichever camera opens.
+            //    A plain Task, not .task: SwiftUI cancels .task when this screen disappears,
+            //    which happens on the way into the camera, while the prewarm must carry on.
             Task { await CameraController.prewarm(licenseInfo: license) }
         }
         .task {
             // Your server issues the capture session; this example asks for one itself.
+            // Coming back to this screen asks for a new one — fine for a demo.
             do { session = .success(try await DemoCaptureSessions.create()) }
             catch { session = .failure(error) }
         }

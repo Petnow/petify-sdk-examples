@@ -17,12 +17,12 @@ val petnowApiKey: String = localProperties.getProperty("petnow.apiKey")
 
 android {
     namespace = "com.example.petify.prewarm"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.petify.prewarm"
         minSdk = 28
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
         buildConfigField("String", "PETNOW_API_KEY", "\"${petnowApiKey.replace("\"", "\\\"")}\"")

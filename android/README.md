@@ -1,6 +1,6 @@
 # Android example (Jetpack Compose)
 
-Home → capture guide (**prewarm**) → camera → result, using the Petnow Android SDK (`io.petnow:ui:1.6.0`).
+Home → capture guide (**prewarm**) → camera → result, using the Petify Android SDK (`io.petnow:ui:1.6.0`).
 The SDK is not in this repository: Gradle downloads it from Petnow's AWS CodeArtifact repository with
 your own credentials, exactly as the [Android Getting Started](https://docs.petnow.io/petify/docs/sdk/android/getting-started)
 guide describes.
@@ -9,34 +9,56 @@ guide describes.
 | --- | --- |
 | `GuideScreen.kt` | ① `CameraController.prewarm(context, license)` when the guide appears |
 | `CameraScreen.kt` | `CameraView` in `AndroidView`, ② guidance after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
-| `MainActivity.kt` | ④ `CameraController.releasePrewarmed()` when the back stack returns home |
+| `MainActivity.kt` | ④ `CameraController.releasePrewarmed()` when the back stack returns home; the result replaces the used-up camera |
 | `DemoCaptureSessions.kt` | creates a capture session — **example only**, your server does this |
 
 ## Requirements
 
-- JDK 17, Android SDK 34, and a device on Android 9 (API 28) or later
-- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- JDK 17, Android SDK 35, and a device on Android 9 (API 28) or later
+- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (2.15 or later)
 - A [Petify Console](https://docs.petnow.io/petify/docs/petify-console) account with a payment method registered
+
+Run the commands below from this folder (`cd android`).
 
 ## 1. Issue your keys in the Petify Console
 
-In **My Page** ([guide](https://docs.petnow.io/petify/docs/petify-console)):
+In **Integration → API & SDK** ([guide](https://docs.petnow.io/petify/docs/petify-console); older consoles
+had these under **My Page**):
 
-1. **API Key Management → create an API Key.** This is the SDK licence (`LicenseInfo(apiKey = …)`).
-2. **Issue the AWS CodeArtifact Key.** These credentials download the SDK.
+1. **API Key Management → Create New API Key**, key type **Client key (app)**. This is the SDK licence
+   (`LicenseInfo(apiKey = …)`). A Client key is enough here: the app only uses the SDK and creates a
+   capture session. Client keys need SDK 1.5.0 or later. Keep Secret keys (server) out of app code. The
+   key is shown only once.
+2. **AWS CodeArtifact Key Management → Create New Key.** These credentials download the SDK. The popup
+   shows them **only once** — save them before you close it.
 
 ## 2. Download the SDK (Gradle, AWS CodeArtifact)
 
-Set the values the console shows for the CodeArtifact Key, then derive the repository URL and token —
-the same commands as the guide:
+Set the values from the CodeArtifact popup under these names:
+
+| Console popup | Environment variable |
+| --- | --- |
+| Access Key ID | `AWS_ACCESS_KEY_ID` |
+| Secret Access Key | `AWS_SECRET_ACCESS_KEY` |
+| AWS Region | `AWS_DEFAULT_REGION` |
+| CodeArtifact Domain | `PETNOW_CODEARTIFACT_DOMAIN` |
+| AWS Account ID | `PETNOW_AWS_ACCOUNT_ID` |
+| Android SDK Repository | `PETNOW_ANDROID_SDK_REPOSITORY` |
+
+The popup's **Copy All** button uses other names (`SDK_CONFIG_AWS_REGION`, `SDK_CONFIG_CODEARTIFACT_DOMAIN`, …)
+and no `export`, so rename the values as above rather than pasting them as they are. Then derive the
+repository URL and token — the same commands as the guide:
 
 ```bash
-export AWS_ACCESS_KEY_ID=<from Petify Console>
-export AWS_SECRET_ACCESS_KEY=<from Petify Console>
-export AWS_DEFAULT_REGION=<from Petify Console>
-export PETNOW_CODEARTIFACT_DOMAIN=<from Petify Console>
-export PETNOW_AWS_ACCOUNT_ID=<from Petify Console>
-export PETNOW_ANDROID_SDK_REPOSITORY=<from Petify Console>
+# So an AWS profile or session already in your shell does not override the Console keys.
+unset AWS_PROFILE AWS_SESSION_TOKEN
+
+export AWS_ACCESS_KEY_ID=<Access Key ID>
+export AWS_SECRET_ACCESS_KEY=<Secret Access Key>
+export AWS_DEFAULT_REGION=<AWS Region>
+export PETNOW_CODEARTIFACT_DOMAIN=<CodeArtifact Domain>
+export PETNOW_AWS_ACCOUNT_ID=<AWS Account ID>
+export PETNOW_ANDROID_SDK_REPOSITORY=<Android SDK Repository>
 
 export CODEARTIFACT_URL=$(aws codeartifact get-repository-endpoint \
   --domain $PETNOW_CODEARTIFACT_DOMAIN \
@@ -65,8 +87,8 @@ variables; `app/build.gradle.kts` declares `implementation("io.petnow:ui:1.6.0")
 cp local.properties.example local.properties
 ```
 
-Edit `local.properties`: `sdk.dir` (your Android SDK) and `petnow.apiKey` (the API Key from step 1).
-The file is git-ignored.
+Edit `local.properties`: `petnow.apiKey` (the Client key from step 1). Uncomment `sdk.dir` only if
+`ANDROID_HOME` is not set. The file is git-ignored.
 
 ## 4. Build and run
 
