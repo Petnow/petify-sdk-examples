@@ -1,9 +1,9 @@
 /// Configuration and every network call the example makes.
 ///
 /// The app holds a **Client key (app)** only. A Client key may run the SDK,
-/// create a capture session and upload images — nothing else. Registering and
-/// identifying need a Secret key (server), and that lives in the example
-/// server (`server/` in the examples repository), never in an app.
+/// create a capture session and upload images — nothing else. Registering,
+/// verifying and identifying need a Secret key (server), and that lives in the
+/// example server (`server/` in the examples repository), never in an app.
 library;
 
 import 'dart:async';
@@ -29,8 +29,8 @@ class AppConfig {
   final String apiKey;
 
   /// The example server, e.g. `http://192.168.0.10:8787`. Unset: camera-only
-  /// mode. Set (with [serverToken]): server mode, which can also register and
-  /// identify.
+  /// mode. Set (with [serverToken]): server mode, which can also register,
+  /// verify and identify.
   final String serverUrl;
 
   /// The token the example server prints at start.
@@ -69,8 +69,10 @@ class ExampleApi {
 
   bool get serverMode => config.serverMode;
 
-  /// Creates a capture session for [purpose] and returns its id.
-  Future<String> createSession(DetectionPurpose purpose) async {
+  /// Creates a capture session for [purpose] and returns its id. A
+  /// verification names the registered pet it checks against: [petId].
+  Future<String> createSession(DetectionPurpose purpose,
+      {String? petId}) async {
     if (!serverMode) {
       // Camera-only mode: the app creates an identification session itself.
       // This is allowed for a Client key; in production your server creates
@@ -89,10 +91,25 @@ class ExampleApi {
     }
     // Server mode. For a registration the server first creates the pet.
     final body = await _server('POST', '/sessions', body: {
-      'purpose': _isRegistration(purpose) ? 'register' : 'identify',
+      'purpose': switch (purpose) {
+        DetectionPurpose.registration => 'register',
+        DetectionPurpose.verification => 'verify',
+        DetectionPurpose.identification => 'identify',
+      },
       'species': 'DOG',
+      if (petId != null) 'petId': petId,
     });
     return body['sessionId'] as String;
+  }
+
+  /// Server mode: the IDs of the pets this example registered, newest first
+  /// (up to 20). A Client key cannot list pets, so camera-only mode has none.
+  Future<List<String>> listPets() async {
+    final body = await _server('GET', '/pets');
+    return [
+      for (final pet in (body['pets'] as List? ?? const []).cast<Map>())
+        pet['petId'] as String,
+    ];
   }
 
   /// Uploads every image of [result] through the example server.
@@ -127,6 +144,11 @@ class ExampleApi {
   /// `{status, petId}`. The server polls the job for up to 30 s.
   Future<Map<String, dynamic>> register(String sessionId) =>
       _server('POST', '/sessions/$sessionId/register', timeout: _longTimeout);
+
+  /// `{status, petId, isVerified, score}`; isVerified and score are null when
+  /// the job failed.
+  Future<Map<String, dynamic>> verify(String sessionId) =>
+      _server('POST', '/sessions/$sessionId/verify', timeout: _longTimeout);
 
   /// `{status, candidates: [{petId, score}]}`.
   Future<Map<String, dynamic>> identify(String sessionId) =>
@@ -194,15 +216,15 @@ class ExampleApi {
   }
 }
 
-bool _isRegistration(DetectionPurpose purpose) =>
-    purpose == DetectionPurpose.registration;
-
 /// One trip Home → guide → camera → result, so Home can clean up after it.
 class CaptureFlow {
-  CaptureFlow(this.api, this.purpose);
+  CaptureFlow(this.api, this.purpose, {this.petId});
 
   final ExampleApi api;
   final DetectionPurpose purpose;
+
+  /// The pet a verification checks against; null otherwise.
+  final String? petId;
 
   String? sessionId;
 
@@ -211,10 +233,10 @@ class CaptureFlow {
 
   bool _closed = false;
 
-  bool get isRegistration => _isRegistration(purpose);
+  bool get isRegistration => purpose == DetectionPurpose.registration;
 
   Future<String> createSession() async {
-    final id = await api.createSession(purpose);
+    final id = await api.createSession(purpose, petId: petId);
     sessionId = id;
     if (_closed) close(); // the user left while the session was being created
     return id;

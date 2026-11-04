@@ -88,6 +88,11 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.petnowcameraexample"
+    // The Material Icons font in ../../assets/fonts (shared with iOS) becomes the
+    // app asset fonts/MaterialIcons-Regular.otf, where React Native looks for fonts.
+    sourceSets {
+        main.assets.srcDirs += "../../assets"
+    }
     defaultConfig {
         applicationId "com.petnowcameraexample"
         minSdkVersion rootProject.ext.minSdkVersion

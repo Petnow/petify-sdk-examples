@@ -31,6 +31,9 @@ struct RootView: View {
                     }
                 }
         }
+        .tint(Theme.main)
+        // The original example's palette is light only.
+        .preferredColorScheme(.light)
         // ④ Release what prewarm prepared only when the user leaves the capture flow.
         //    Not in GuideScreen.onDisappear: that also fires on the way *into* the camera,
         //    and releasing there destroys the engine the camera is about to take.

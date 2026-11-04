@@ -1,10 +1,10 @@
 # Example server
 
-A small development server that lets the example apps register and identify
-pets without a Secret key on the phone.
+A small development server that lets the example apps register, verify and
+identify pets without a Secret key on the phone.
 
 The apps hold a **Client key (app)**. A Client key may create capture sessions
-and upload images, nothing else. Registering and identifying need a **Secret
+and upload images, nothing else. Registering, verifying and identifying need a **Secret
 key (server)**, and a Secret key must never ship inside an app. This server
 holds the Secret key and exposes the few calls the apps need. It is the
 production architecture in miniature: in your product, the same logic lives in
@@ -13,11 +13,11 @@ your own backend.
 ```
 App (Client key)  ──►  this server (Secret key)  ──►  Petify Server API
    capture              create pet / session            api.petify.petnow.io
-                        upload, register, identify
+                        upload, register, verify, identify
 ```
 
 Without the server the apps run in camera-only mode: you can capture, but
-nothing is uploaded and "Register a pet" is disabled.
+nothing is uploaded, and registering and verifying are disabled.
 
 ## Requirements
 
@@ -72,16 +72,21 @@ Petify's status and error code (for example `400 PETNOWB2B20012`).
 | Method & path | Body | Petify calls | Response |
 |---|---|---|---|
 | `GET /health` | — | — | `200 {"ok":true}` |
-| `POST /sessions` | `{"purpose":"identify"\|"register","species":"DOG"\|"CAT"}` | register: `POST /v2/pets`, then `POST /v2/capture-sessions` (`PET_PROFILE_REGISTRATION`, `petId`); identify: `POST /v2/capture-sessions` (`PET_IDENTIFICATION`) | `201 {"sessionId","petId"?}` |
+| `GET /pets` | — | `GET /v2/pets`, keeping the pets this server registered (newest first, at most 20) | `200 {"pets":[{"petId","createdAt"}]}` |
+| `POST /sessions` | `{"purpose":"identify"\|"register"\|"verify","species":"DOG"\|"CAT","petId"?}` | register: `POST /v2/pets`, then `POST /v2/capture-sessions` (`PET_PROFILE_REGISTRATION`, `petId`); verify (`petId` required): `POST /v2/capture-sessions` (`PET_VERIFICATION`, `petId`); identify: `POST /v2/capture-sessions` (`PET_IDENTIFICATION`) | `201 {"sessionId","petId"?}` |
 | `POST /sessions/{id}/fingerprints` | multipart, field `file` | `POST /v2/fingerprints:upload?sessionId={id}` (streamed through) | `204` |
 | `POST /sessions/{id}/appearances` | multipart, field `file` | `POST /v2/appearances:upload?sessionId={id}` (streamed through) | `204` |
 | `POST /sessions/{id}/register` | — | `POST /v2/pets/{petId}:addFingerprints`, then poll `GET /v2/fingerprint-addition-jobs/{jobId}` | `200 {"status","petId"}` |
+| `POST /sessions/{id}/verify` | — | `POST /v2/pets/{petId}:verify`, then poll `GET /v2/verification-jobs/{jobId}` | `200 {"status","petId","isVerified","score"}` |
 | `POST /sessions/{id}/identify` | — | `POST /v2/pets:identify`, then poll `GET /v2/identification-jobs/{jobId}` | `200 {"status","candidates":[{"petId","score","isMatch"}]}` |
 | `DELETE /sessions/{id}` | — | `DELETE /v2/pets/{petId}` if it was an unfinished registration | `204` |
 
 `status` is `SUCCESS` or `FAILED` from Petify, or `TIMEOUT` if the job did not
-end within 30 seconds (the server polls once a second). Candidates are sorted
-closest match first. Timeouts towards Petify: 15 s per JSON call, 60 s per
+end within 30 seconds (the server polls once a second). `isVerified` and
+`score` are `null` when a verification failed. Use `isVerified` and `isMatch`,
+Petify's decisions, rather than a score cut-off. Candidates are sorted closest
+match first. A job route answers `400 wrong_purpose` for a session created for
+another purpose. Timeouts towards Petify: 15 s per JSON call, 60 s per
 upload. Uploads are passed through without parsing, always with a
 `Content-Length` (Petify can drop chunked upload bodies): streamed when the app
 sends a length, buffered first when it does not.
@@ -98,7 +103,9 @@ register), and the server then deletes the pet it created. A registered pet is
 never deleted by the server.
 
 Pets created by this server carry the metadata `{"createdBy":"petify-sdk-example"}`,
-so you can find them in the Console or with `GET /v2/pets`.
+so you can find them in the Console or with `GET /v2/pets`. `GET /pets` lists
+only those, for the apps' list of pets to verify; your own backend keeps its own
+pet records instead.
 
 ## Security notes
 
@@ -115,4 +122,4 @@ This is a development example:
 
 For production, put this logic into your real backend: behind your own user
 authentication, over HTTPS, with the Secret key in your secret store, and with
-your own rules for which user may register or identify which pet.
+your own rules for which user may register, verify or identify which pet.

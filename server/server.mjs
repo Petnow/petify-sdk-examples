@@ -1,7 +1,7 @@
 // Petify SDK example server: a DEVELOPMENT EXAMPLE, not a production server.
 //
 // The example apps hold a Client key (app), which may only create capture
-// sessions and upload images. Registering and identifying pets needs a
+// sessions and upload images. Registering, verifying and identifying pets needs a
 // Secret key (server), and a Secret key must never ship inside an app. This
 // server holds the Secret key and exposes the few calls the apps need, which
 // is the production architecture in miniature: in your product this logic
@@ -62,7 +62,7 @@ const POLL_LIMIT_MS = 30_000;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const PET_METADATA = JSON.stringify({ createdBy: 'petify-sdk-example' });
 
-// sessionId -> { purpose: 'identify' | 'register', petId?, registered? }. In memory only.
+// sessionId -> { purpose: 'identify' | 'register' | 'verify', petId?, registered? }. In memory only.
 const sessions = new Map();
 
 // ---------------------------------------------------------------- helpers
@@ -173,11 +173,28 @@ function authorized(req) {
 
 // ---------------------------------------------------------------- handlers
 
+// Petify: GET /v2/pets. The pets this example registered (metadata createdBy, with a
+// fingerprint), newest first, for the apps' "verify a pet" list. Your own backend keeps
+// its own pet records instead of listing every pet in the account.
+async function listPets(req, res) {
+  const pets = (await petify('GET', '/v2/pets')) || [];
+  const ours = pets
+    .filter((pet) => pet.hasFingerprint && createdByExample(pet.metadata))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 20)
+    .map((pet) => ({ petId: pet.id, createdAt: pet.createdAt }));
+  sendJson(res, 200, { pets: ours });
+}
+
+function createdByExample(metadata) {
+  try { return JSON.parse(metadata || '{}').createdBy === 'petify-sdk-example'; } catch { return false; }
+}
+
 // Petify: POST /v2/pets (register only), POST /v2/capture-sessions.
 async function createSession(req, res) {
-  const { purpose, species = 'DOG' } = await readJson(req);
-  if (purpose !== 'identify' && purpose !== 'register') {
-    throw new HttpError(400, 'invalid_request', 'purpose must be "identify" or "register"');
+  const { purpose, species = 'DOG', petId } = await readJson(req);
+  if (purpose !== 'identify' && purpose !== 'register' && purpose !== 'verify') {
+    throw new HttpError(400, 'invalid_request', 'purpose must be "identify", "register" or "verify"');
   }
   if (species !== 'DOG' && species !== 'CAT') {
     throw new HttpError(400, 'invalid_request', 'species must be "DOG" or "CAT"');
@@ -187,6 +204,15 @@ async function createSession(req, res) {
     const session = await petify('POST', '/v2/capture-sessions', { species, purpose: 'PET_IDENTIFICATION' });
     sessions.set(session.id, { purpose });
     return sendJson(res, 201, { sessionId: session.id });
+  }
+
+  if (purpose === 'verify') {
+    if (typeof petId !== 'string' || !/^[0-9a-fA-F-]{36}$/.test(petId)) {
+      throw new HttpError(400, 'invalid_request', 'verify needs the petId of a registered pet');
+    }
+    const session = await petify('POST', '/v2/capture-sessions', { species, purpose: 'PET_VERIFICATION', petId });
+    sessions.set(session.id, { purpose, petId });
+    return sendJson(res, 201, { sessionId: session.id, petId });
   }
 
   const pet = await petify('POST', '/v2/pets', { species, metadata: PET_METADATA });
@@ -230,7 +256,7 @@ async function uploadImage(req, res, sessionId, kind) {
 async function register(req, res, sessionId) {
   const session = knownSession(sessionId);
   if (session.purpose !== 'register') {
-    throw new HttpError(400, 'wrong_purpose', 'This session was created to identify, not to register');
+    throw new HttpError(400, 'wrong_purpose', `This session was created to ${session.purpose}, not to register`);
   }
   const { jobId } = await petify('POST', `/v2/pets/${session.petId}:addFingerprints`, { sessionId });
   const job = await pollJob(`/v2/fingerprint-addition-jobs/${jobId}`);
@@ -238,9 +264,24 @@ async function register(req, res, sessionId) {
   sendJson(res, 200, { status: job.status, petId: session.petId });
 }
 
+// Petify: POST /v2/pets/{petId}:verify, then GET /v2/verification-jobs/{jobId}.
+// isVerified and score are null when the job failed.
+async function verify(req, res, sessionId) {
+  const session = knownSession(sessionId);
+  if (session.purpose !== 'verify') {
+    throw new HttpError(400, 'wrong_purpose', `This session was created to ${session.purpose}, not to verify`);
+  }
+  const { jobId } = await petify('POST', `/v2/pets/${session.petId}:verify`, { sessionId });
+  const job = await pollJob(`/v2/verification-jobs/${jobId}`);
+  sendJson(res, 200, { status: job.status, petId: session.petId, isVerified: job.isVerified ?? null, score: job.score ?? null });
+}
+
 // Petify: POST /v2/pets:identify, then GET /v2/identification-jobs/{jobId}.
 async function identify(req, res, sessionId) {
-  knownSession(sessionId);
+  const session = knownSession(sessionId);
+  if (session.purpose !== 'identify') {
+    throw new HttpError(400, 'wrong_purpose', `This session was created to ${session.purpose}, not to identify`);
+  }
   const { jobId } = await petify('POST', '/v2/pets:identify', { sessionId });
   const job = await pollJob(`/v2/identification-jobs/${jobId}`);
   const candidates = (job.pets || []).map((pet) => ({ petId: pet.id, score: pet.score, isMatch: pet.isMatch }));
@@ -268,14 +309,16 @@ async function route(req, res) {
   if (req.method === 'GET' && pathname === '/health') return sendJson(res, 200, { ok: true });
   if (!authorized(req)) throw new HttpError(401, 'unauthorized', 'Missing or wrong Authorization: Bearer token');
 
+  if (req.method === 'GET' && pathname === '/pets') return listPets(req, res);
   if (req.method === 'POST' && pathname === '/sessions') return createSession(req, res);
-  const match = /^\/sessions\/([0-9a-fA-F-]{36})(?:\/(fingerprints|appearances|register|identify))?$/.exec(pathname);
+  const match = /^\/sessions\/([0-9a-fA-F-]{36})(?:\/(fingerprints|appearances|register|verify|identify))?$/.exec(pathname);
   if (match) {
     const [, id, action] = match;
     if (req.method === 'DELETE' && !action) return deleteSession(req, res, id);
     if (req.method === 'POST' && action === 'fingerprints') return uploadImage(req, res, id, 'fingerprints');
     if (req.method === 'POST' && action === 'appearances') return uploadImage(req, res, id, 'appearances');
     if (req.method === 'POST' && action === 'register') return register(req, res, id);
+    if (req.method === 'POST' && action === 'verify') return verify(req, res, id);
     if (req.method === 'POST' && action === 'identify') return identify(req, res, id);
   }
   throw new HttpError(404, 'not_found', `No route for ${req.method} ${pathname}`);

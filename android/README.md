@@ -2,7 +2,7 @@
 
 Home → capture guide (**prewarm**) → camera → result, using the Petify Android SDK (`io.petnow:ui:1.6.0`).
 It runs in **camera-only mode** with just a Client key; with the [example server](../server/README.md)
-running it can also register and identify pets ([below](#register-and-identify-example-server)).
+running it can also register, verify and identify pets ([below](#register-verify-and-identify-example-server)).
 The SDK is not in this repository: Gradle downloads it from Petnow's AWS CodeArtifact repository with
 your own credentials, exactly as the [Android Getting Started](https://docs.petnow.io/petify/docs/sdk/android/getting-started)
 guide describes.
@@ -12,10 +12,12 @@ guide describes.
 | `GuideScreen.kt` | ① `CameraController.prewarm(context, license)` when the guide appears |
 | `CameraScreen.kt` | `CameraView` in `AndroidView`, ② guidance after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
 | `MainActivity.kt` | ④ `CameraController.releasePrewarmed()` when the back stack returns home; the result replaces the used-up camera |
+| `HomeScreen.kt` | Identify / Register, and in server mode the **Pets** list: tap a pet to verify it |
 | `CaptureSession.kt` | creates the capture session: Petify directly in camera-only mode, the example server in server mode |
 | `DemoCaptureSessions.kt` | camera-only mode: an identification session with the Client key — **example only**, your server does this |
-| `ExampleServer.kt` | server mode: session, image uploads, register/identify, and deleting the pet of an abandoned registration |
+| `ExampleServer.kt` | server mode: the pet list, session, image uploads, register/verify/identify, and deleting the pet of an abandoned registration |
 | `ResultScreen.kt` | ⑤ `engineReused`; in server mode **Send** uploads the images and shows the outcome |
+| `Theme.kt` | the Petify palette, buttons and cards shared with the other examples |
 
 ## Requirements
 
@@ -96,7 +98,7 @@ cp local.properties.example local.properties
 Edit `local.properties`: `petnow.apiKey` (the Client key from step 1). Uncomment `sdk.dir` only if
 `ANDROID_HOME` is not set. The file is git-ignored. Without `petnow.apiKey` the build falls back to a
 `PETNOW_API_KEY` environment variable (handy on CI). `example.serverUrl` and `example.serverToken` are
-optional; leave them commented out for camera-only mode (see [Register and identify](#register-and-identify-example-server)).
+optional; leave them commented out for camera-only mode (see [Register, verify and identify](#register-verify-and-identify-example-server)).
 
 ## 4. Build and run
 
@@ -107,9 +109,9 @@ optional; leave them commented out for camera-only mode (see [Register and ident
 To use Android Studio, start it from the same shell (`open -a "Android Studio" .` on macOS) so it
 sees `CODEARTIFACT_URL` and `CODEARTIFACT_AUTH_TOKEN`.
 
-## Register and identify (example server)
+## Register, verify and identify (example server)
 
-Optional. Registering a pet needs the Secret key, so the app asks the [example server](../server/README.md)
+Optional. Registering, verifying and identifying need the Secret key, so the app asks the [example server](../server/README.md)
 on your computer instead. Apps hold a Client key (app) only; the Secret key (server) lives only in the
 example server. Start the server (see its README), then add to `local.properties` and rebuild:
 
@@ -123,9 +125,11 @@ example.serverToken=<token the server printed>
   shows or logs it.
 
 Without them the build falls back to `EXAMPLE_SERVER_URL` and `EXAMPLE_SERVER_TOKEN` environment variables.
-With both set, **Register a pet** is enabled on Home, and the result screen has a **Send** button that
-uploads the images and shows the registered pet ID or the top candidates. Leaving a registration without
-a successful register deletes the pet the server created for it. The phone and the computer must be on
+With both set, **Register a pet** is enabled on Home, and Home lists the pets this example registered
+under **Pets** (newest first, from the server's `GET /pets`). Tap one to verify it: the camera captures
+for that pet. The result screen has a **Send** button that uploads the images and shows the registered pet
+ID, **Same pet** / **Not the same pet** with the score, or the top candidates. Leaving a registration
+without a successful register deletes the pet the server created for it. The phone and the computer must be on
 the same Wi-Fi.
 
 Android blocks plain HTTP by default. The build writes a network security config that allows it to the

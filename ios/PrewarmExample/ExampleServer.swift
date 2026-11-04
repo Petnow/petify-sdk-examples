@@ -15,7 +15,15 @@ enum ExampleServer {
 
     enum Outcome {
         case registered(status: String, petId: String?)
+        /// isVerified and score are nil when the job failed.
+        case verified(status: String, petId: String?, isVerified: Bool?, score: Int?)
         case identified(status: String, candidates: [Candidate])
+    }
+
+    /// A pet this example registered, for Home's Pets list.
+    struct Pet: Decodable, Hashable {
+        let petId: String
+        let createdAt: String
     }
 
     struct Candidate: Decodable {
@@ -28,6 +36,13 @@ enum ExampleServer {
     /// registered to yet. `abandonOpenRegistrations()` deletes those pets.
     @MainActor private static var openRegistrations: Set<UUID> = []
 
+    /// GET /pets: the pets this example registered, newest first (at most 20).
+    static func listPets() async throws -> [Pet] {
+        struct Body: Decodable { let pets: [Pet] }
+        let data = try await send(makeRequest("pets", method: "GET", timeout: 15))
+        return try JSONDecoder().decode(Body.self, from: data).pets
+    }
+
     @MainActor
     static func createSession(for purpose: Purpose) async throws -> UUID {
         // A guide screen shown again asks for a new session; drop the one from before.
@@ -35,10 +50,9 @@ enum ExampleServer {
         var request = makeRequest("sessions", method: "POST", timeout: 15)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // Dog only. For cats, send "CAT" here and use .cat in CameraScreen's DetectionConfiguration.
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "purpose": purpose.rawValue,
-            "species": "DOG",
-        ])
+        var body = ["purpose": purpose.name, "species": "DOG"]
+        if case .verify(let petId) = purpose { body["petId"] = petId }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         // Not cancelled with the guide screen: for a registration the server may already
         // have created a pet, and its session ID must come back so the pet can be deleted.
         let finalRequest = request
@@ -64,11 +78,11 @@ enum ExampleServer {
         _ = try await send(request)
     }
 
-    /// POST /register or /identify. The server polls Petify's job for up to 30 s
+    /// POST /register, /verify or /identify. The server polls Petify's job for up to 30 s
     /// before it answers, so this waits longer than the 15 s of the other JSON calls.
     @MainActor
     static func finish(_ session: CaptureSession) async throws -> Outcome {
-        let request = makeRequest("sessions/\(path(session.id))/\(session.purpose.rawValue)", method: "POST", timeout: 60)
+        let request = makeRequest("sessions/\(path(session.id))/\(session.purpose.name)", method: "POST", timeout: 60)
         let data = try await send(request)
         switch session.purpose {
         case .register:
@@ -76,6 +90,10 @@ enum ExampleServer {
             let body = try JSONDecoder().decode(Body.self, from: data)
             if body.status == "SUCCESS" { openRegistrations.remove(session.id) }
             return .registered(status: body.status, petId: body.petId)
+        case .verify:
+            struct Body: Decodable { let status: String; let petId: String?; let isVerified: Bool?; let score: Int? }
+            let body = try JSONDecoder().decode(Body.self, from: data)
+            return .verified(status: body.status, petId: body.petId, isVerified: body.isVerified, score: body.score)
         case .identify:
             struct Body: Decodable { let status: String; let candidates: [Candidate]? }
             let body = try JSONDecoder().decode(Body.self, from: data)

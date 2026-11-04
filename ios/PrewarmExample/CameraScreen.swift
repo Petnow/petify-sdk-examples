@@ -124,6 +124,7 @@ private struct GuidanceBanner: View {
         VStack(spacing: 8) {
             Text(text).font(.headline)
             ProgressView(value: Double(progress), total: 100)
+                .tint(Theme.main)
         }
         .padding()
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))

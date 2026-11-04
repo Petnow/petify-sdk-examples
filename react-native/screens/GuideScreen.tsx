@@ -2,8 +2,14 @@ import React, {useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, StyleSheet, Text, View} from 'react-native';
 import {PetnowPrewarm} from '@petify/react-native-camera-ui';
 
-import type {Session} from '../api';
-import {Button, Screen, colors} from '../ui';
+import type {Purpose, Session} from '../api';
+import {Button, Card, MaterialIcon, Screen, colors} from '../ui';
+
+const TITLES: Record<Purpose, string> = {
+  identify: 'Identify a pet',
+  register: 'Register a pet',
+  verify: 'Verify a pet',
+};
 
 /**
  * The screen before the camera: the user reads it for a few seconds, which is
@@ -11,12 +17,17 @@ import {Button, Screen, colors} from '../ui';
  * will run on.
  */
 export function GuideScreen({
+  purpose,
+  petId,
   sdkReady,
   createSession,
   discardSession,
   onOpenCamera,
   onBack,
 }: {
+  purpose: Purpose;
+  /** The pet a verification checks against. */
+  petId?: string;
   /** `usePetnowCamera(...).state.status === 'ready'`: the SDK holds the key. */
   sdkReady: boolean;
   createSession: () => Promise<Session>;
@@ -82,11 +93,12 @@ export function GuideScreen({
   };
 
   return (
-    <Screen title="Capture guide" onBack={onBack}>
-      <Text style={styles.heading}>Before you start</Text>
-      <Text style={styles.tip}>• Get close enough that the nose fills the frame.</Text>
-      <Text style={styles.tip}>• Use soft, even light and avoid glare on the nose.</Text>
-      <Text style={styles.tip}>• Hold still until the progress is complete.</Text>
+    <Screen title={TITLES[purpose]} subtitle={petId && `Pet ${petId.slice(0, 8)}…`} onBack={onBack}>
+      <Card title="Capture guide" glyph={MaterialIcon.infoOutline}>
+        <Text style={styles.tip}>• Get close enough that the nose fills the frame.</Text>
+        <Text style={styles.tip}>• Use soft, even light and avoid glare on the nose.</Text>
+        <Text style={styles.tip}>• Hold still until the progress is complete.</Text>
+      </Card>
       <View style={styles.spacer} />
       {error ? (
         <>
@@ -97,7 +109,7 @@ export function GuideScreen({
         <Button label="Open camera" onPress={open} />
       ) : (
         <View style={styles.waiting}>
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={colors.main} />
           <Text style={styles.tip}>Creating a capture session…</Text>
         </View>
       )}
@@ -106,8 +118,7 @@ export function GuideScreen({
 }
 
 const styles = StyleSheet.create({
-  heading: {fontSize: 20, fontWeight: '600', color: colors.text},
-  tip: {fontSize: 16, lineHeight: 22, color: colors.text},
+  tip: {fontSize: 16, lineHeight: 22, color: colors.ink},
   spacer: {flex: 1},
   error: {fontSize: 14, color: colors.error},
   waiting: {alignItems: 'center', gap: 8},

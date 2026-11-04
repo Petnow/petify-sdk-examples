@@ -12,15 +12,23 @@ struct GuideScreen: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Before you start").font(.title2.bold())
-            Label("Get close enough that the nose fills the frame.", systemImage: "viewfinder")
-            Label("Use soft, even light and avoid glare on the nose.", systemImage: "sun.max")
-            Label("Hold still until the progress is complete.", systemImage: "hand.raised")
+            if case .verify(let petId) = purpose {
+                Text("Pet \(petId.prefix(8))…").font(.subheadline).foregroundStyle(Theme.inkMuted)
+            }
+            Text("Before you start").font(.title2.bold()).foregroundStyle(Theme.ink)
+            Group {
+                Label("Get close enough that the nose fills the frame.", systemImage: "viewfinder")
+                Label("Use soft, even light and avoid glare on the nose.", systemImage: "sun.max")
+                Label("Hold still until the progress is complete.", systemImage: "hand.raised")
+            }
+            .foregroundStyle(Theme.ink)
+            .labelStyle(TipLabelStyle())
             Spacer()
             startButton
         }
         .padding(24)
-        .navigationTitle("Capture guide")
+        .background(Theme.appBg)
+        .navigationTitle(purpose.title)
         .onAppear {
             guard let license = AppConfig.license else { return }
             // ① Prewarm here, on the screen whose button leads to the camera.
@@ -48,22 +56,29 @@ struct GuideScreen: View {
         switch session {
         case .success(let session):
             Button("Open camera") { onStartCamera(session) }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity)
+                .buttonStyle(PrimaryButtonStyle())
         case .failure(let error):
             VStack(spacing: 12) {
                 Text("Could not create a capture session: \(error.localizedDescription)")
                     .font(.footnote)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.error)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button("Try again") { attempt += 1 }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(SecondaryButtonStyle())
             }
         case nil:
             ProgressView("Creating a capture session…")
                 .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// The icon in the main colour, the text in ink.
+private struct TipLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            configuration.icon.foregroundStyle(Theme.main).frame(width: 28)
+            configuration.title
         }
     }
 }

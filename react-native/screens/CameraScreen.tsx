@@ -8,9 +8,16 @@ import {
   type PetnowCamera,
 } from '@petify/react-native-camera-ui';
 
-import type {Session} from '../api';
+import type {Purpose, Session} from '../api';
 import {REASON_MESSAGES} from '../petnowGuidance';
 import {Button, colors} from '../ui';
+
+/** The SDK's capture purpose for each flow. */
+const CAPTURE_PURPOSE = {
+  identify: 'PET_IDENTIFICATION',
+  register: 'PET_PROFILE_REGISTRATION',
+  verify: 'PET_VERIFICATION',
+} as const satisfies Record<Purpose, string>;
 
 /** What the result screen shows. */
 export interface Capture {
@@ -107,7 +114,7 @@ export function CameraScreen({
         style={StyleSheet.absoluteFill}
         // Dog only. For cats, use species="CAT" here and in the capture session.
         species="DOG"
-        purpose={session.purpose === 'register' ? 'PET_PROFILE_REGISTRATION' : 'PET_IDENTIFICATION'}
+        purpose={CAPTURE_PURPOSE[session.purpose]}
         captureSessionId={session.id}
         onDetectionStatus={setStatus}
         onDetectionProgress={setProgress}
@@ -161,7 +168,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.85)',
   },
-  closeLabel: {fontSize: 15, fontWeight: '600', color: colors.text},
+  closeLabel: {fontSize: 15, fontWeight: '600', color: colors.ink},
   panel: {
     margin: 16,
     padding: 16,
@@ -169,8 +176,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.9)',
   },
-  panelTitle: {fontSize: 17, fontWeight: '600', textAlign: 'center', color: colors.text},
+  panelTitle: {fontSize: 17, fontWeight: '600', textAlign: 'center', color: colors.ink},
   error: {fontSize: 14, textAlign: 'center', color: colors.error},
   track: {height: 6, borderRadius: 3, backgroundColor: '#E0E0E0', overflow: 'hidden'},
-  bar: {height: 6, backgroundColor: colors.accent},
+  bar: {height: 6, backgroundColor: colors.main},
 });

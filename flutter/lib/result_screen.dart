@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:petnow_camera_ui/petnow_camera_ui.dart';
 
 import 'example_api.dart';
+import 'petify_theme.dart';
 
 class ResultScreen extends StatefulWidget {
   const ResultScreen({
@@ -21,52 +22,89 @@ class ResultScreen extends StatefulWidget {
   State<ResultScreen> createState() => _ResultScreenState();
 }
 
+/// What the server said: a title, coloured as a success or not, and details.
+typedef _Outcome = ({String title, bool ok, List<String> lines, String? note});
+
 class _ResultScreenState extends State<ResultScreen> {
   bool _busy = false;
   String? _step;
-  List<String>? _outcome;
-  bool _failed = false;
+  _Outcome? _outcome;
 
   void _show(String step) {
     if (mounted) setState(() => _step = step);
   }
 
-  /// Server mode: upload every image, then register or identify.
+  /// Server mode: upload every image, then register, verify or identify.
   Future<void> _send() async {
     final flow = widget.flow;
     final api = flow.api;
     final sessionId = flow.sessionId!;
     setState(() => _busy = true);
-    List<String> outcome;
+    _Outcome outcome;
     try {
       await api.upload(sessionId, widget.result,
           (done, total) => _show('Uploading image ${done + 1} of $total…'));
-      if (flow.isRegistration) {
-        _show('Registering…');
-        final r = await api.register(sessionId);
-        flow.registered = r['status'] == 'SUCCESS';
-        outcome = flow.registered
-            ? ['Registered pet ${r['petId']}']
-            : ['Registration ${r['status']}'];
-      } else {
-        _show('Identifying…');
-        final r = await api.identify(sessionId);
-        final candidates = (r['candidates'] as List? ?? const []).cast<Map>();
-        outcome = r['status'] != 'SUCCESS'
-            ? ['Identification ${r['status']}']
-            : candidates.isEmpty
-                ? ['No match']
-                : [
-                    'Top candidates:',
-                    for (final c in candidates.take(5))
-                      '${c['petId']} · ${c['score']}'
-                          '${c['isMatch'] == true ? '  ✓ match' : ''}',
-                  ];
+      switch (flow.purpose) {
+        case DetectionPurpose.registration:
+          _show('Registering…');
+          final r = await api.register(sessionId);
+          flow.registered = r['status'] == 'SUCCESS';
+          outcome = flow.registered
+              ? (
+                  title: 'Pet registered',
+                  ok: true,
+                  lines: ['petId ${r['petId']}'],
+                  note: null,
+                )
+              : (
+                  title: 'Registration ${r['status']}',
+                  ok: false,
+                  lines: const [],
+                  note: null,
+                );
+        case DetectionPurpose.verification:
+          _show('Verifying…');
+          final r = await api.verify(sessionId);
+          final verified = r['isVerified'];
+          outcome = r['status'] != 'SUCCESS' || verified == null
+              ? (
+                  title: 'Verification ${r['status']}',
+                  ok: false,
+                  lines: const [],
+                  note: null,
+                )
+              : (
+                  title: verified == true ? 'Same pet' : 'Not the same pet',
+                  ok: verified == true,
+                  lines: ['petId ${r['petId']}', 'score ${r['score']}'],
+                  note: "The server's decision is the answer, not the score.",
+                );
+        case DetectionPurpose.identification:
+          _show('Identifying…');
+          final r = await api.identify(sessionId);
+          final candidates = (r['candidates'] as List? ?? const []).cast<Map>();
+          outcome = r['status'] != 'SUCCESS'
+              ? (
+                  title: 'Identification ${r['status']}',
+                  ok: false,
+                  lines: const [],
+                  note: null,
+                )
+              : candidates.isEmpty
+                  ? (title: 'No match', ok: false, lines: const [], note: null)
+                  : (
+                      title: 'Top candidates',
+                      ok: true,
+                      lines: [
+                        for (final c in candidates.take(5))
+                          '${c['petId']} · ${c['score']}'
+                              '${c['isMatch'] == true ? '  ✓ match' : ''}',
+                      ],
+                      note: null,
+                    );
       }
-      _failed = false;
     } catch (e) {
-      outcome = ['$e'];
-      _failed = true;
+      outcome = (title: 'Request failed', ok: false, lines: ['$e'], note: null);
     }
     if (!mounted) return;
     setState(() {
@@ -124,13 +162,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   child: Text(_step ?? 'Send'),
                 )
               else
-                for (final line in outcome)
-                  Text(
-                    line,
-                    style: _failed
-                        ? TextStyle(color: theme.colorScheme.error)
-                        : null,
-                  ),
+                _OutcomeView(outcome),
               const SizedBox(height: 16),
               OutlinedButton(
                 onPressed: _busy ? null : _done,
@@ -140,6 +172,48 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _OutcomeView extends StatelessWidget {
+  const _OutcomeView(this.outcome);
+
+  final _Outcome outcome;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = outcome.ok ? Petify.success : Petify.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(outcome.ok ? Icons.check_circle : Icons.cancel, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                outcome.title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (final line in outcome.lines)
+          Text(line, style: const TextStyle(color: Petify.ink)),
+        if (outcome.note != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            outcome.note!,
+            style: const TextStyle(fontSize: 12, color: Petify.inkMuted),
+          ),
+        ],
+      ],
     );
   }
 }

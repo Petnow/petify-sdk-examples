@@ -10,12 +10,20 @@
  */
 import {PETIFY_API_BASE_URL} from './config';
 
-export type Purpose = 'identify' | 'register';
+export type Purpose = 'identify' | 'register' | 'verify';
 
 /** A capture session the camera runs on. */
 export interface Session {
   id: string;
   purpose: Purpose;
+  /** The pet a verification checks against. */
+  petId?: string;
+}
+
+/** A pet this example registered, as the example server lists it. */
+export interface PetSummary {
+  petId: string;
+  createdAt: string;
 }
 
 /** One pet the identification found, best first. */
@@ -32,7 +40,7 @@ export type JobStatus = 'SUCCESS' | 'FAILED' | 'TIMEOUT';
 
 const JSON_TIMEOUT_MS = 15_000;
 const UPLOAD_TIMEOUT_MS = 60_000;
-/** Register and identify wait for the Petify job; the server polls it for up to 30 s. */
+/** Register, verify and identify wait for the Petify job; the server polls it for up to 30 s. */
 const JOB_TIMEOUT_MS = 60_000;
 
 /**
@@ -109,14 +117,23 @@ export class ExampleServer {
     );
   }
 
-  /** For "register" the server also creates the pet the session is for. */
-  async createSession(purpose: Purpose): Promise<Session> {
+  /** The pets this example registered, newest first: what "verify" can pick from. */
+  async listPets(): Promise<PetSummary[]> {
+    const body = await this.call('/pets');
+    return body.pets;
+  }
+
+  /**
+   * For "register" the server also creates the pet the session is for; for
+   * "verify" the session is tied to `petId`, the pet to check against.
+   */
+  async createSession(purpose: Purpose, petId?: string): Promise<Session> {
     const body = await this.call('/sessions', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({purpose, species: 'DOG'}),
+      body: JSON.stringify({purpose, species: 'DOG', ...(petId && {petId})}),
     });
-    return {id: body.sessionId, purpose};
+    return {id: body.sessionId, purpose, petId: body.petId};
   }
 
   /** One captured image, as multipart field `file`. The SDK hands out file paths. */
@@ -133,6 +150,16 @@ export class ExampleServer {
   /** Adds the uploaded nose images to the pet. Resolves to `{status, petId}`. */
   register(sessionId: string): Promise<{status: JobStatus; petId: string}> {
     return this.call(`/sessions/${sessionId}/register`, {method: 'POST'}, JOB_TIMEOUT_MS);
+  }
+
+  /**
+   * Checks the images against the session's pet (1:1). Resolves to
+   * `{status, petId, isVerified, score}`; isVerified and score are null when the job failed.
+   */
+  verify(
+    sessionId: string,
+  ): Promise<{status: JobStatus; petId: string; isVerified: boolean | null; score: number | null}> {
+    return this.call(`/sessions/${sessionId}/verify`, {method: 'POST'}, JOB_TIMEOUT_MS);
   }
 
   /** Searches your pets. Resolves to `{status, candidates}`. */

@@ -28,10 +28,15 @@ object ExampleServer {
     sealed interface Outcome {
         data class Registered(val status: String, val petId: String?) : Outcome
         data class Identified(val status: String, val candidates: List<Candidate>) : Outcome
+        /** [isVerified] and [score] are null when the job did not succeed. */
+        data class Verified(val status: String, val petId: String, val isVerified: Boolean?, val score: Int?) : Outcome
     }
 
     /** [score] is 0–100; [isMatch] is Petify's verdict for this candidate. */
     data class Candidate(val petId: String, val score: Int, val isMatch: Boolean)
+
+    /** A pet this example registered, for the verify list on Home. */
+    data class Pet(val petId: String, val createdAt: String)
 
     /**
      * Registration sessions whose pet the server created and nothing has been
@@ -39,7 +44,17 @@ object ExampleServer {
      */
     private val openRegistrations = ConcurrentHashMap.newKeySet<UUID>()
 
-    suspend fun createSession(purpose: Purpose): UUID {
+    /** GET /pets: the pets this example registered, newest first (at most 20). */
+    suspend fun listPets(): List<Pet> = withContext(Dispatchers.IO) {
+        val list = JSONObject(call("GET", "pets", JSON_TIMEOUT_MS)).getJSONArray("pets")
+        List(list.length()) { i ->
+            val pet = list.getJSONObject(i)
+            Pet(pet.getString("petId"), pet.optString("createdAt"))
+        }
+    }
+
+    /** [petId] is the pet to verify; only for [Purpose.VERIFY]. */
+    suspend fun createSession(purpose: Purpose, petId: String? = null): UUID {
         // A guide screen shown again asks for a new session; drop the one from before.
         abandonOpenRegistrations()
         // NonCancellable: for a registration the server may already have created a pet
@@ -47,6 +62,7 @@ object ExampleServer {
         return withContext(Dispatchers.IO + NonCancellable) {
             // Dog only. For cats, send "CAT" here and use PetSpecies.CAT in CameraScreen.
             val body = JSONObject().put("purpose", purpose.wire).put("species", "DOG")
+            if (purpose == Purpose.VERIFY) body.put("petId", petId)
             val response = call("POST", "sessions", JSON_TIMEOUT_MS, body.toString().toByteArray(), "application/json")
             val id = UUID.fromString(JSONObject(response).getString("sessionId"))
             if (purpose == Purpose.REGISTER) openRegistrations += id
@@ -69,7 +85,7 @@ object ExampleServer {
     }
 
     /**
-     * POST /register or /identify. The server polls Petify's job for up to 30 s
+     * POST /register, /verify or /identify. The server polls Petify's job for up to 30 s
      * before it answers, so this waits longer than the 15 s of the other JSON calls.
      */
     suspend fun finish(session: CaptureSession): Outcome = withContext(Dispatchers.IO) {
@@ -82,6 +98,12 @@ object ExampleServer {
                 if (status == "SUCCESS") openRegistrations -= session.id
                 Outcome.Registered(status, json.optString("petId").ifEmpty { null })
             }
+            Purpose.VERIFY -> Outcome.Verified(
+                status,
+                json.optString("petId").ifEmpty { session.petId.orEmpty() },
+                if (json.isNull("isVerified")) null else json.getBoolean("isVerified"),
+                if (json.isNull("score")) null else json.getInt("score"),
+            )
             Purpose.IDENTIFY -> {
                 val list = json.optJSONArray("candidates")
                 Outcome.Identified(status, List(list?.length() ?: 0) { i ->

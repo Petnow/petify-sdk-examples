@@ -3,10 +3,10 @@ package com.example.petify.prewarm
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
@@ -20,15 +20,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Draw behind the system bars; the screens keep clear of them with safeDrawingPadding().
-        enableEdgeToEdge()
-        setContent { MaterialTheme { App() } }
+        // Dark bar icons: the screens are light even in dark mode (PetifyTheme).
+        val lightBars = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = lightBars, navigationBarStyle = lightBars)
+        setContent { PetifyTheme { App() } }
     }
 }
 
 // Parcelable so the back stack survives the activity being recreated (see App()).
 sealed interface Route : Parcelable {
     @Parcelize data object Home : Route
-    @Parcelize data class Guide(val purpose: Purpose) : Route
+    /** [petId] is the pet to verify, for [Purpose.VERIFY]. */
+    @Parcelize data class Guide(val purpose: Purpose, val petId: String? = null) : Route
     @Parcelize data class Camera(val session: CaptureSession) : Route
     @Parcelize data class Result(val session: CaptureSession, val summary: CaptureSummary) : Route
 }
@@ -62,8 +65,8 @@ private fun App() {
     }
 
     when (val route = backStack.last()) {
-        Route.Home -> HomeScreen(onStart = { backStack.add(Route.Guide(it)) })
-        is Route.Guide -> GuideScreen(route.purpose, onOpenCamera = { backStack.add(Route.Camera(it)) })
+        Route.Home -> HomeScreen(onStart = { purpose, petId -> backStack.add(Route.Guide(purpose, petId)) })
+        is Route.Guide -> GuideScreen(route.purpose, route.petId, onOpenCamera = { backStack.add(Route.Camera(it)) })
         is Route.Camera -> CameraScreen(
             session = route.session,
             // The result replaces the camera: its capture session is used up, so

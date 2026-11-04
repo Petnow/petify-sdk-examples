@@ -12,6 +12,7 @@
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
+		46F4A7D93BCEC23FABBBE8A0 /* MaterialIcons-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = FBF5E59E82F9B7972AC41E69 /* MaterialIcons-Regular.otf */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -28,6 +29,7 @@
 		5DCACB8F33CDC322A6C60F78 /* libPods-PetnowCameraExample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-PetnowCameraExample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = PetnowCameraExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		FBF5E59E82F9B7972AC41E69 /* MaterialIcons-Regular.otf */ = {isa = PBXFileReference; includeInIndex = 1; name = "MaterialIcons-Regular.otf"; path = "../assets/fonts/MaterialIcons-Regular.otf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +58,14 @@
 			name = PetnowCameraExample;
 			sourceTree = "<group>";
 		};
+		215A1148095992C9C7E64281 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				FBF5E59E82F9B7972AC41E69 /* MaterialIcons-Regular.otf */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -80,6 +90,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				215A1148095992C9C7E64281 /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -170,6 +181,7 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				03CFAB7134AB7B4D44272A28 /* PrivacyInfo.xcprivacy in Resources */,
+				46F4A7D93BCEC23FABBBE8A0 /* MaterialIcons-Regular.otf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

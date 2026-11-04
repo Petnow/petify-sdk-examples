@@ -5,20 +5,25 @@ Home → capture guide (**prewarm**) → camera → result, using the Petify Rea
 
 | File | What it shows |
 | --- | --- |
+| `screens/HomeScreen.tsx` | Identify / Register, and in server mode the **Pets** list: tap a pet to verify it |
 | `screens/GuideScreen.tsx` | ① `PetnowPrewarm.start()` when the guide appears; gets the capture session |
-| `screens/CameraScreen.tsx` | `<CameraView>`, ② "Preparing" until `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry on the open camera with `startDetection()`, ⑤ `engineReused` (also logged to the Metro console) |
+| `screens/CameraScreen.tsx` | `<CameraView>`, ② "Getting ready…" until `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry on the open camera with `startDetection()`, ⑤ `engineReused` (also logged to the Metro console) |
 | `App.tsx` | ④ `PetnowPrewarm.release()` when the user is back on Home; camera permission; pausing in the background |
-| `screens/ResultScreen.tsx` | the captured images; in server mode, sends them to the example server |
+| `screens/ResultScreen.tsx` | the captured images; in server mode, sends them to the example server to register, verify or identify |
 | `api.ts` | every network call: the camera-only session, and the example server's API |
 | `petnowGuidance.ts` | what to tell the user for each reason the SDK rejects a frame |
+| `ui.tsx` | the palette, Material icons (from the bundled `assets/fonts/MaterialIcons-Regular.otf`), and shared building blocks |
 
 The app holds a **Client key (app)** only. It runs in one of two modes:
 
 - **Camera-only** (the default): the app opens an identification session with the Client key
   (`POST /v2/capture-sessions`, which a Client key may call), runs the camera and shows what it
-  captured. Nothing is uploaded, and "Register a pet" stays disabled.
+  captured. Nothing is uploaded, "Register a pet" stays disabled, and there is no pet list to
+  verify against.
 - **Server mode**: with the [example server](../server/README.md) running, the server creates the
-  sessions and the result screen sends the images to it to **register** or **identify** a pet. The
+  sessions, Home lists the pets the example registered, and the result screen sends the images to
+  the server to **register**, **verify** (tap a pet in the list: is this the same pet?) or
+  **identify** (which of your pets is this?) a pet. The
   Secret key stays in the server. This is how your app should work: it talks to *your* server,
   and your server to Petify.
 
@@ -159,4 +164,5 @@ in the guide.
 ## License
 
 MIT for the example code. The Petify SDK is licensed separately under your Petify agreement. The
-Petify and Petnow names are Petnow's and are not covered by the MIT licence.
+Petify and Petnow names are Petnow's and are not covered by the MIT licence. The Material Icons
+font in `assets/fonts` is Google's, under CC BY 4.0 (`assets/fonts/MaterialIcons_LICENSE.txt`).

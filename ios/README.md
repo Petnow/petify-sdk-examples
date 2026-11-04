@@ -2,20 +2,22 @@
 
 Home → capture guide (**prewarm**) → camera → result, using the Petify iOS SDK (`petnow.ui`) 1.6.0.
 It runs in **camera-only mode** with just a Client key; with the [example server](../server/README.md)
-running it can also register and identify pets ([below](#register-and-identify-example-server)).
+running it can also register, verify and identify pets ([below](#register-verify-and-identify-example-server)).
 The SDK is not in this repository: you download it from Petnow's AWS CodeArtifact registry with your
 own credentials, exactly as the [iOS Getting Started](https://docs.petnow.io/petify/docs/sdk/ios/getting-started)
 guide describes.
 
 | File | What it shows |
 | --- | --- |
+| `PrewarmExample/HomeScreen.swift` | Identify / Register, and in server mode the **Pets** list (tap a pet to verify it) |
 | `PrewarmExample/GuideScreen.swift` | ① `CameraController.prewarm(licenseInfo:)` in `onAppear` |
 | `PrewarmExample/CameraScreen.swift` | ② guidance from `detectionStatus` after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
 | `PrewarmExample/PrewarmExampleApp.swift` | ④ `CameraController.releasePrewarmed()` when the navigation path returns home |
-| `PrewarmExample/CaptureSession.swift` | creates the capture session: Petify directly in camera-only mode, the example server in server mode |
+| `PrewarmExample/CaptureSession.swift` | what the user picked (identify, register, verify a pet) and the capture session: Petify directly in camera-only mode, the example server in server mode |
 | `PrewarmExample/DemoCaptureSessions.swift` | camera-only mode: an identification session with the Client key — **example only**, your server does this |
-| `PrewarmExample/ExampleServer.swift` | server mode: session, image uploads, register/identify, and deleting the pet of an abandoned registration |
+| `PrewarmExample/ExampleServer.swift` | server mode: the pet list, session, image uploads, register/verify/identify, and deleting the pet of an abandoned registration |
 | `PrewarmExample/ResultScreen.swift` | ⑤ `engineReused`; in server mode **Send** uploads the images and shows the outcome |
+| `PrewarmExample/Theme.swift` | the colours and buttons shared with the other examples |
 
 ## Requirements
 
@@ -90,7 +92,7 @@ Edit `Config/Secrets.xcconfig` (git-ignored):
 - `EXAMPLE_BUNDLE_ID` — change the placeholder to a bundle ID your team can sign. Automatic signing
   fails for an ID another team has already registered.
 - `EXAMPLE_SERVER_HOST`, `EXAMPLE_SERVER_TOKEN` — optional, leave them commented out for camera-only mode
-  (see [Register and identify](#register-and-identify-example-server)).
+  (see [Register, verify and identify](#register-verify-and-identify-example-server)).
 
 ## 4. Build and run
 
@@ -104,9 +106,9 @@ navigator shows it). Select your iPhone and run.
 `PrewarmExample.xcodeproj` is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen);
 you only need XcodeGen if you change `project.yml`.
 
-## Register and identify (example server)
+## Register, verify and identify (example server)
 
-Optional. Registering a pet needs the Secret key, so the app asks the [example server](../server/README.md)
+Optional. Registering, verifying and identifying need the Secret key, so the app asks the [example server](../server/README.md)
 on your computer instead. Apps hold a Client key (app) only; the Secret key (server) lives only in the
 example server. Start the server (see its README), then add to `Config/Secrets.xcconfig` and rebuild:
 
@@ -120,9 +122,11 @@ EXAMPLE_SERVER_TOKEN = <token the server printed>
 - `EXAMPLE_SERVER_TOKEN` — the server's token. The app sends it as `Authorization: Bearer …` and never
   shows or logs it.
 
-With both set, **Register a pet** is enabled on Home, and the result screen has a **Send** button that
-uploads the images and shows the registered pet ID or the top candidates. Leaving a registration without
-a successful register deletes the pet the server created for it. The iPhone and the computer must be on
+With both set, **Register a pet** is enabled on Home, and the **Pets** card lists the pets this example
+registered (newest first, up to 20); tap one to verify it. The result screen has a **Send** button that
+uploads the images and shows the registered pet ID, whether it is the same pet (verify), or the top
+candidates (identify). Leaving a registration without a successful register deletes the pet the server
+created for it. The iPhone and the computer must be on
 the same Wi-Fi; allow **Local Network** access when iOS asks. Plain HTTP to a LAN address is allowed by
 `NSAllowsLocalNetworking` in `Info.plist` (no `NSAllowsArbitraryLoads`).
 

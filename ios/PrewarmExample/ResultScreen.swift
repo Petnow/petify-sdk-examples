@@ -34,7 +34,7 @@ struct ResultScreen: View {
             } else {
                 Text("Run the example server to register or identify these images (server/README)")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.inkMuted)
             }
             if let preview {
                 Image(uiImage: preview)
@@ -43,6 +43,8 @@ struct ResultScreen: View {
                     .frame(maxHeight: 200)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.appBg)
         .navigationTitle("Result")
         .task { preview = summary.fingerprintImages.first.flatMap { UIImage(contentsOfFile: $0.path) } }
         .navigationBarBackButtonHidden()
@@ -51,27 +53,47 @@ struct ResultScreen: View {
     }
 
     @ViewBuilder private var serverSection: some View {
-        Section(session.purpose == .register ? "Register" : "Identify") {
+        Section(session.purpose.title) {
             switch outcome {
             case nil:
                 Button(sending ? progress : "Send") { Task { await send() } }
+                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(sending)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
             case .success(.registered(let status, let petId)):
-                LabeledContent("Status", value: status)
+                LabeledContent("Status") {
+                    Text(status).foregroundStyle(status == "SUCCESS" ? Theme.success : Theme.error)
+                }
                 if let petId { LabeledContent("Pet ID", value: petId) }
+            case .success(.verified(let status, let petId, let isVerified, let score)):
+                if status == "SUCCESS", let isVerified {
+                    Label(isVerified ? "Same pet" : "Not the same pet",
+                          systemImage: isVerified ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.headline)
+                        .foregroundStyle(isVerified ? Theme.success : Theme.error)
+                } else {
+                    Text("Verification \(status)").foregroundStyle(Theme.error)
+                }
+                if let petId { LabeledContent("Pet ID", value: petId) }
+                if let score { LabeledContent("Score", value: "\(score)") }
+                Text("The server's decision is the answer, not the score.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.inkMuted)
             case .success(.identified(let status, let candidates)):
                 LabeledContent("Status", value: status)
                 if candidates.isEmpty { Text("No matching pet") }
-                ForEach(candidates.prefix(3), id: \.petId) {
-                    Text("\($0.petId) · \($0.score)\($0.isMatch == true ? "  ✓ match" : "")")
+                ForEach(candidates.prefix(3), id: \.petId) { candidate in
+                    Text("\(candidate.petId) · \(candidate.score)\(candidate.isMatch == true ? "  ✓ match" : "")")
+                        .foregroundStyle(candidate.isMatch == true ? Theme.success : Theme.ink)
                 }
             case .failure(let error):
-                Text(error.localizedDescription).foregroundStyle(.red)
+                Text(error.localizedDescription).foregroundStyle(Theme.error)
             }
         }
     }
 
-    /// Uploads every image to the capture session, then registers or identifies. One try:
+    /// Uploads every image to the capture session, then registers, verifies or identifies. One try:
     /// after an outcome or an error, Done returns home and a new capture starts over.
     private func send() async {
         sending = true
@@ -83,7 +105,11 @@ struct ResultScreen: View {
                 progress = "Uploading \(index + 1) of \(uploads.count)…"
                 try await ExampleServer.upload(file, kind: kind, session: session.id)
             }
-            progress = session.purpose == .register ? "Registering…" : "Identifying…"
+            switch session.purpose {
+            case .identify: progress = "Identifying…"
+            case .register: progress = "Registering…"
+            case .verify: progress = "Verifying…"
+            }
             outcome = .success(try await ExampleServer.finish(session))
         } catch {
             outcome = .failure(error)

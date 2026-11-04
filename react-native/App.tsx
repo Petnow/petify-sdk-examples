@@ -12,8 +12,9 @@
  * The app holds a Client key only (`PETIFY_API_KEY` in .env). Without an
  * example server it runs in camera-only mode: it opens an identification
  * session itself and captures, but uploads nothing. With `EXAMPLE_SERVER_URL`
- * and `EXAMPLE_SERVER_TOKEN` set, the server creates the sessions and the
- * result screen sends the images to it to register or identify.
+ * and `EXAMPLE_SERVER_TOKEN` set, the server creates the sessions, Home lists
+ * the pets it registered, and the result screen sends the images to it to
+ * register, verify or identify.
  */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Alert, AppState, BackHandler, Linking, PermissionsAndroid, Platform} from 'react-native';
@@ -28,7 +29,7 @@ import {ResultScreen} from './screens/ResultScreen';
 
 type Route =
   | {screen: 'home'}
-  | {screen: 'guide'; purpose: Purpose}
+  | {screen: 'guide'; purpose: Purpose; petId?: string}
   | {screen: 'camera'; session: Session}
   | {screen: 'result'; session: Session; capture: Capture};
 
@@ -85,9 +86,9 @@ export default function App(): React.JSX.Element {
     [server],
   );
 
-  const createSession = (purpose: Purpose) =>
+  const createSession = (purpose: Purpose, petId?: string) =>
     server
-      ? server.createSession(purpose)
+      ? server.createSession(purpose, petId)
       : createIdentificationSession(PETIFY_API_KEY);
 
   /** False when the camera permission was refused; the user stays on the guide. */
@@ -110,7 +111,7 @@ export default function App(): React.JSX.Element {
       case 'camera':
         // Back to the guide, which gets a fresh session for the next try.
         leaveSession(route.session);
-        setRoute({screen: 'guide', purpose: route.session.purpose});
+        setRoute({screen: 'guide', purpose: route.session.purpose, petId: route.session.petId});
         return true;
       case 'result':
         leaveSession(route.session);
@@ -130,14 +131,17 @@ export default function App(): React.JSX.Element {
         <HomeScreen
           sdkReady={sdkReady}
           sdkError={camera.state.status === 'error' ? camera.state.error : null}
-          onStart={purpose => setRoute({screen: 'guide', purpose})}
+          server={server}
+          onStart={(purpose, petId) => setRoute({screen: 'guide', purpose, petId})}
         />
       );
     case 'guide':
       return (
         <GuideScreen
+          purpose={route.purpose}
+          petId={route.petId}
           sdkReady={sdkReady}
-          createSession={() => createSession(route.purpose)}
+          createSession={() => createSession(route.purpose, route.petId)}
           discardSession={leaveSession}
           onOpenCamera={openCamera}
           onBack={goBack}

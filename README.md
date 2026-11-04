@@ -25,9 +25,10 @@ wording. Each runs in one of two modes:
 
 - **Camera-only** (just a Client key): the app opens an identification capture session and captures.
   Nothing is uploaded.
-- **Server mode** (Client key + [`server/`](server/README.md)): the app can also register and identify
-  a pet. It uploads the images to the example server, which holds the Secret key and calls the Petify
-  Server API — your production architecture in miniature.
+- **Server mode** (Client key + [`server/`](server/README.md)): the app can also register, verify (1:1)
+  and identify (1:N) a pet. Home lists the pets you registered; tap one to verify it. The app uploads
+  the images to the example server, which holds the Secret key and calls the Petify Server API — your
+  production architecture in miniature.
 
 **Apps hold a Client key (app) only; the Secret key (server) lives only in the example server.**
 
@@ -70,7 +71,7 @@ the [Petify docs](https://docs.petnow.io/petify/docs/sdk):
    | Where | API key type | What it may do |
    | --- | --- | --- |
    | Every app (iOS, Android, React Native, Flutter) | **Client key (app)** | Run the SDK, create a capture session, upload images. Needs SDK 1.5.0+. |
-   | `server/` (optional) | **Secret key (server)** | Everything else: create pets, register, identify, delete. Never put it in an app. |
+   | `server/` (optional) | **Secret key (server)** | Everything else: create and list pets, register, verify, identify, delete. Never put it in an app. |
 
 2. **Download the SDK** with the CodeArtifact Key, as the platform's Getting Started guide describes:
    [iOS](https://docs.petnow.io/petify/docs/sdk/ios/getting-started) (Swift Package Manager),
@@ -82,7 +83,7 @@ the [Petify docs](https://docs.petnow.io/petify/docs/sdk):
    `PETIFY_API_KEY` in `react-native/.env` and `flutter/.env`.
 4. **Build and run** on a device.
 5. *(Optional)* **Run [`server/`](server/README.md)** with a Secret key and give the app its URL and token
-   to register and identify.
+   to register, verify and identify.
 
 Each platform's README walks through these four steps with the exact commands, including which Console
 value goes into which environment variable.
@@ -139,8 +140,8 @@ hands to the app as an ID.
 - In **camera-only mode** the apps create an identification session themselves with their Client key —
   one of the few calls a Client key may make — and stop at capture: nothing is identified and no pet is
   stored. That shortcut is marked *example only*.
-- In **server mode** the example server creates the session (and, for a registration, the pet), receives
-  the images, and makes every other Server API call — as your server will.
+- In **server mode** the example server creates the session (and, for a registration, the pet), lists the
+  pets to verify, receives the images, and makes every other Server API call — as your server will.
 
 All apps run against the **production** backend, where Petify Console keys are issued. **A registration in
 server mode is a real pet in your account.** The server tags the pets it creates with the metadata

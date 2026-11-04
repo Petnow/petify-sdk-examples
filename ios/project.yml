@@ -25,6 +25,7 @@ targets:
         DEVELOPMENT_TEAM: $(EXAMPLE_TEAM_ID)
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_FILE: PrewarmExample/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_VERSION: "5.0"
         MARKETING_VERSION: "1.0"

@@ -8,18 +8,19 @@ React Native examples.
 | --- | --- |
 | `lib/guide_screen.dart` | ① `controller.prewarm()` when the guide appears; the camera permission |
 | `lib/camera_screen.dart` | `PetnowCameraView`, ② guidance after `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry with `startDetection()`, `onError` code and message, ⑤ `engineReused` (console) |
-| `lib/main.dart` | Home; ④ `controller.releasePrewarmed()` once the flow returns home |
-| `lib/result_screen.dart` | image counts, ⑤ `engineReused`, and in server mode Send → register / identify |
+| `lib/main.dart` | Home (in server mode, the registered pets to verify); ④ `controller.releasePrewarmed()` once the flow returns home |
+| `lib/result_screen.dart` | image counts, ⑤ `engineReused`, and in server mode Send → register / verify / identify |
 | `lib/example_api.dart` | creates the capture session and calls the example server — **example only**, your server does this |
 | `lib/petnow_guidance.dart` | detection status → one line for the user (copy and edit) |
+| `lib/petify_theme.dart` | the example's colours (the SDK's camera overlay keeps its own) |
 | `lib/quickstart.dart` | the bare integration in one file: `flutter run -t lib/quickstart.dart …` |
 
 The app runs in one of two modes:
 
 - **Camera-only** (just a Client key): the app creates an identification capture session itself and
-  captures. Nothing is uploaded; "Register a pet" is disabled.
-- **Server mode** (Client key + the [example server](#optional-the-example-server)): register and
-  identify a pet. The app uploads the images to the example server, which holds the Secret key and
+  captures. Nothing is uploaded; "Register a pet" is disabled and there is no pet list to verify.
+- **Server mode** (Client key + the [example server](#optional-the-example-server)): register,
+  verify and identify a pet. The app uploads the images to the example server, which holds the Secret key and
   calls the Petify Server API.
 
 ## Requirements
@@ -107,7 +108,7 @@ The app talks to production (`https://api.petify.petnow.io`).
 
 ## Optional: the example server
 
-To register and identify, run the example server from the examples repository —
+To register, verify and identify, run the example server from the examples repository —
 [`../server/README.md`](../server/README.md)
 ([on GitHub](https://github.com/Petnow/petify-sdk-examples/tree/main/server) when you are reading this
 inside the zip). It holds your Secret key (server) and prints the URL and token a phone should use. Put
@@ -118,9 +119,10 @@ EXAMPLE_SERVER_URL=http://192.168.0.10:8787
 EXAMPLE_SERVER_TOKEN=<the token the server printed>
 ```
 
-and run again. Home then enables "Register a pet", and the result screen gets a **Send** button: it
-uploads the images, then registers or identifies, and shows the outcome. Leaving a registration without
-a successful register deletes the pet the server created for it.
+and run again. Home then enables "Register a pet" and lists the pets you registered with the example
+(tap one to verify it), and the result screen gets a **Send** button: it uploads the images, then
+registers, verifies or identifies, and shows the outcome. Leaving a registration without a successful
+register deletes the pet the server created for it.
 
 The server is plain HTTP on your local network, so the example allows cleartext HTTP
 (`android:usesCleartextTraffic` in `AndroidManifest.xml`, `NSAllowsLocalNetworking` in `Info.plist`).

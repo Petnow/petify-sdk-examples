@@ -6,6 +6,7 @@ import 'package:petnow_camera_ui/petnow_camera_ui.dart';
 
 import 'camera_screen.dart';
 import 'example_api.dart';
+import 'petify_theme.dart';
 
 /// The screen before the camera: the user reads it for a few seconds, which is
 /// exactly the time prewarm needs.
@@ -66,8 +67,15 @@ class _GuideScreenState extends State<GuideScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final petId = widget.flow.petId;
     return Scaffold(
-      appBar: AppBar(title: const Text('Capture guide')),
+      appBar: AppBar(
+        title: Text(switch (widget.flow.purpose) {
+          DetectionPurpose.identification => 'Identify a pet',
+          DetectionPurpose.registration => 'Register a pet',
+          DetectionPurpose.verification => 'Verify a pet',
+        }),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -75,6 +83,11 @@ class _GuideScreenState extends State<GuideScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('Before you start', style: theme.textTheme.headlineSmall),
+              if (petId != null)
+                Text(
+                  'Pet ${shortPetId(petId)}',
+                  style: const TextStyle(color: Petify.inkMuted),
+                ),
               const SizedBox(height: 16),
               const _Tip(
                 Icons.center_focus_strong,
@@ -145,7 +158,7 @@ class _Tip extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: Row(
           children: [
-            Icon(icon),
+            Icon(icon, color: Petify.main),
             const SizedBox(width: 12),
             Expanded(child: Text(text)),
           ],
