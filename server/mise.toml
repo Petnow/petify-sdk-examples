@@ -1,0 +1,4 @@
+# Node.js for developing this server, for mise users (https://mise.jdx.dev).
+# Any Node.js 22 or newer works; this pins the current Active LTS.
+[tools]
+node = "26"
