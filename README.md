@@ -18,7 +18,7 @@ Home ──▶ Capture guide ──▶ Camera ──▶ Result
 | [`android/`](android/README.md) | Android 9+ (API 28), Jetpack Compose | `io.petnow:ui:1.6.0` (Maven) |
 | [`react-native/`](react-native/README.md) | React Native 0.76, New Architecture | `@petify/react-native-camera-ui` 1.6.0 (npm) |
 | [`flutter/`](flutter/README.md) | Flutter 3.41+ | `petnow_camera_ui` 1.6.0 (zip from CodeArtifact) |
-| [`server/`](server/README.md) | Node.js 18+ | — (the optional example server; holds the Secret key) |
+| [`server/`](server/README.md) | Node.js 22+ | — (the optional example server; holds the Secret key) |
 
 All four apps are the same app: the four screens above, the same numbered comments ①–⑤, the same
 wording. Each runs in one of two modes:

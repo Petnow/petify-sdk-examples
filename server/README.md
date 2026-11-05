@@ -21,7 +21,7 @@ nothing is uploaded, and registering and verifying are disabled.
 
 ## Requirements
 
-- Node.js 18 or newer. No dependencies, no `npm install`.
+- Node.js 22 or newer (tested on 22, 24 and 26). No dependencies, no `npm install`.
 - A Secret key (server) from the Petify Console → Integration → API & SDK.
 - The phone and this machine on the same network.
 
@@ -32,6 +32,10 @@ cd server
 cp .env.example .env    # then set PETIFY_SECRET_KEY in .env
 npm start               # or: node server.mjs
 ```
+
+`npm run dev` restarts the server when `server.mjs` changes. Press Ctrl+C to
+stop: the server finishes open requests first, and a second Ctrl+C stops it at
+once.
 
 At start the server prints the URL(s) a phone on the same network should use,
 for example `http://192.168.0.10:8787`. If you did not set

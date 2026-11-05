@@ -32,7 +32,7 @@ Dog only. For cats, pass `species: "CAT"` when creating the session and `species
 
 ## Requirements
 
-- Node 18.18+, and the [React Native environment](https://reactnative.dev/docs/set-up-your-environment)
+- Node.js 22+, and the [React Native environment](https://reactnative.dev/docs/set-up-your-environment)
   for the platforms you build: Xcode 16 + CocoaPods 1.15.2+, JDK 17 + Android SDK 35
 - A device: iOS 16.4+ or Android 9+ (API 28) — the camera does not run in the iOS simulator
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (2.15 or later)

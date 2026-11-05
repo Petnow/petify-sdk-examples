@@ -12,36 +12,24 @@
 // `Authorization: Bearer <EXAMPLE_SERVER_TOKEN>`; the token stops other devices
 // on the same Wi-Fi from using your Secret key.
 //
-// Run: node server.mjs (Node 18+, no dependencies). Configuration: server/.env
+// Run: node server.mjs (Node.js 22+, no dependencies). Configuration: server/.env
 // or environment variables (environment variables win). See README.md.
 
 import http from 'node:http';
 import crypto from 'node:crypto';
 import os from 'node:os';
-import fs from 'node:fs';
+import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 // ---------------------------------------------------------------- configuration
 
-// Tiny .env reader: KEY=VALUE lines, `#` comments, optional surrounding quotes.
-function readDotEnv(file) {
-  let text;
-  try { text = fs.readFileSync(file, 'utf8'); } catch { return {}; }
-  const vars = {};
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq < 1) continue;
-    const key = line.slice(0, eq).trim();
-    let value = line.slice(eq + 1).trim();
-    if (/^(['"]).*\1$/.test(value)) value = value.slice(1, -1);
-    vars[key] = value;
-  }
-  return vars;
+// server/.env is optional. loadEnvFile never overrides a variable that is already set.
+try {
+  process.loadEnvFile(path.join(import.meta.dirname, '.env'));
+} catch (err) {
+  if (err.code !== 'ENOENT') throw err;
 }
-
-const dotEnv = readDotEnv(new URL('.env', import.meta.url));
-const setting = (name, fallback = '') => process.env[name] || dotEnv[name] || fallback;
+const setting = (name, fallback = '') => process.env[name] || fallback;
 
 const SECRET_KEY = setting('PETIFY_SECRET_KEY');
 const API_BASE_URL = setting('PETIFY_API_BASE_URL', 'https://api.petify.petnow.io').replace(/\/+$/, '');
@@ -52,6 +40,10 @@ const TOKEN = setting('EXAMPLE_SERVER_TOKEN') || crypto.randomBytes(16).toString
 
 if (!SECRET_KEY) {
   console.error('PETIFY_SECRET_KEY is not set. Copy .env.example to .env and add a Secret key (server).');
+  process.exit(1);
+}
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`PORT must be a number from 1 to 65535, not "${setting('PORT')}".`);
   process.exit(1);
 }
 
@@ -132,7 +124,7 @@ async function pollJob(path) {
   while (Date.now() < deadline) {
     const job = await petify('GET', path);
     if (job.status === 'SUCCESS' || job.status === 'FAILED') return job;
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    await sleep(POLL_INTERVAL_MS);
   }
   return { status: 'TIMEOUT' };
 }
@@ -333,13 +325,30 @@ const server = http.createServer(async (req, res) => {
   try {
     await route(req, res);
   } catch (err) {
-    if (!(err instanceof HttpError)) console.error(err);
-    const status = err instanceof HttpError ? err.status : 500;
-    const code = err instanceof HttpError ? err.code : 'internal_error';
-    if (!res.headersSent) sendJson(res, status, { error: code, message: err.message });
+    // Unexpected errors are logged here and answered without their details.
+    const known = err instanceof HttpError ? err : new HttpError(500, 'internal_error', 'Internal server error');
+    if (known !== err) console.error(err);
+    if (!res.headersSent) sendJson(res, known.status, { error: known.code, message: known.message });
     if (!req.complete) req.resume(); // drain an unread upload body
   }
 });
+
+server.on('error', (err) => {
+  console.error(err.code === 'EADDRINUSE'
+    ? `Port ${PORT} is already in use. Stop the other process or set PORT.`
+    : `Could not start the server: ${err.message}`);
+  process.exit(1);
+});
+
+// Ctrl+C or a process manager: stop accepting requests and let running ones finish
+// (a job poll takes up to 30 s). A second Ctrl+C stops at once.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    console.log(`${signal} received, finishing open requests (Ctrl+C again to stop now)`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), POLL_LIMIT_MS + JSON_TIMEOUT_MS).unref();
+  });
+}
 
 server.listen(PORT, HOST, () => {
   console.log(`Petify SDK example server on http://${HOST}:${PORT} -> ${API_BASE_URL}`);
