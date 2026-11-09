@@ -67,7 +67,7 @@ export AWS_SECRET_ACCESS_KEY=<Secret Access Key>
 export AWS_DEFAULT_REGION=<AWS Region>
 export PETNOW_CODEARTIFACT_DOMAIN=<CodeArtifact Domain>
 export PETNOW_AWS_ACCOUNT_ID=<AWS Account ID>
-export PETNOW_FLUTTER_REPOSITORY=petnow-flutter   # repository name: see the SDK docs
+export PETNOW_FLUTTER_REPOSITORY=petnow-flutter
 
 aws codeartifact get-package-version-asset \
   --domain "$PETNOW_CODEARTIFACT_DOMAIN" --domain-owner "$PETNOW_AWS_ACCOUNT_ID" \
@@ -130,7 +130,7 @@ Your own app talks HTTPS to your own backend.
 
 ## Troubleshooting
 
-See also the plugin's `README.md` (in the zip) and the [SDK docs](https://docs.petnow.io/petify/docs/sdk).
+See also the plugin's `README.md` (in the zip) and [Flutter Getting Started](https://docs.petnow.io/petify/docs/sdk/flutter/getting-started).
 
 - **"Set PETIFY_API_KEY …" on the home screen** — `.env` is missing the key, or the app was not run
   with `--dart-define-from-file=.env`.
