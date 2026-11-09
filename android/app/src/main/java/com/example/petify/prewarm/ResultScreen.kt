@@ -2,6 +2,7 @@ package com.example.petify.prewarm
 
 import android.graphics.BitmapFactory
 import android.os.Parcelable
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +62,11 @@ fun ResultScreen(session: CaptureSession, summary: CaptureSummary, onDone: () ->
     }
     var progress by remember { mutableStateOf<String?>(null) } // non-null while sending
     var outcome by rememberSaveable { mutableStateOf<Shown?>(null) }
+
+    // While sending, back waits, as Done does: leaving would delete the session while
+    // its uploads and the register call are still on the way. Composed after the app's
+    // own BackHandler, so this one wins while it is enabled.
+    BackHandler(enabled = progress != null) {}
 
     // Uploads every image to the capture session, then registers, verifies or identifies.
     // One try: after an outcome or an error, Done returns home and a new capture starts over.

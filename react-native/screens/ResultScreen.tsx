@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Image, ScrollView, StyleSheet, Text, View} from 'react-native';
 
 import type {ExampleServer, Session} from '../api';
@@ -18,6 +18,7 @@ export function ResultScreen({
   session,
   server,
   onRegistered,
+  onSendingChange,
   onDone,
 }: {
   capture: Capture;
@@ -26,11 +27,14 @@ export function ResultScreen({
   server: ExampleServer | null;
   /** The registration went through, so leaving must not delete the pet. */
   onRegistered: () => void;
+  /** Told when Send starts and ends, so the app's back button can wait too. */
+  onSendingChange: (sending: boolean) => void;
   onDone: () => void;
 }) {
   const [step, setStep] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const sending = step !== null;
+  useEffect(() => onSendingChange(sending), [sending, onSendingChange]);
 
   /** Uploads every image to the session, then registers, verifies or identifies. */
   const send = async () => {

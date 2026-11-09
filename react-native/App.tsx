@@ -77,6 +77,13 @@ export default function App(): React.JSX.Element {
   // A registration session comes with a pet the server created for it. If the
   // user leaves before the registration succeeds, ask the server to delete it.
   const registered = useRef(new Set<string>());
+  // True while the result screen is sending. Leaving then would delete the
+  // session while its uploads and the register call are still on the way, so
+  // Android's back button waits, as the Done button does.
+  const sending = useRef(false);
+  const setSending = useCallback((value: boolean) => {
+    sending.current = value;
+  }, []);
   const leaveSession = useCallback(
     (session: Session) => {
       if (session.purpose === 'register' && !registered.current.has(session.id)) {
@@ -114,6 +121,9 @@ export default function App(): React.JSX.Element {
         setRoute({screen: 'guide', purpose: route.session.purpose, petId: route.session.petId});
         return true;
       case 'result':
+        if (sending.current) {
+          return true;
+        }
         leaveSession(route.session);
         setRoute({screen: 'home'});
         return true;
@@ -164,6 +174,7 @@ export default function App(): React.JSX.Element {
           session={route.session}
           server={server}
           onRegistered={() => registered.current.add(route.session.id)}
+          onSendingChange={setSending}
           onDone={goBack}
         />
       );
