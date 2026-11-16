@@ -7,7 +7,7 @@ React Native examples.
 | File | What it shows |
 | --- | --- |
 | `lib/guide_screen.dart` | ① `controller.prewarm()` when the guide appears; the camera permission |
-| `lib/camera_screen.dart` | `PetnowCameraView`, ② guidance after `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry with `startDetection()`, `onError` code and message, ⑤ `engineReused` (console) |
+| `lib/camera_screen.dart` | `PetnowCameraView`, ② guidance after `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry with `startDetection()` showing `CameraResult.failureReason`, `onError` code and message, ⑤ `engineReused` (console) |
 | `lib/main.dart` | Home (in server mode, the registered pets to verify); ④ `controller.releasePrewarmed()` once the flow returns home |
 | `lib/result_screen.dart` | image counts, ⑤ `engineReused`, and in server mode Send → register / verify / identify |
 | `lib/example_api.dart` | creates the capture session and calls the example server — **example only**, your server does this |

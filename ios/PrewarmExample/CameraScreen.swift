@@ -5,6 +5,8 @@ struct CameraScreen: View {
     @StateObject private var controller: CameraController
     @Environment(\.dismiss) private var dismiss
     @State private var showRetry = false
+    // The failed session's reason. Since 1.6.0 it arrives on the result, not on detectionStatus.
+    @State private var failureReason: DetectionFailureReason?
     @State private var startError: String?
     @State private var showStartError = false
     private let session: CaptureSession
@@ -43,6 +45,8 @@ struct CameraScreen: View {
             // ③ Retry with startDetection(): the camera stays open, so there is no second start.
             Button("Try again") { controller.startDetection() }
             Button("Leave", role: .cancel) { dismiss() }
+        } message: {
+            Text(failureReason.map(Self.hint(for:)) ?? "")
         }
         .alert("Camera could not start", isPresented: $showStartError) {
             Button("OK") { dismiss() }
@@ -80,9 +84,11 @@ struct CameraScreen: View {
                 engineReused: phases.engineReused ?? false,
                 firstFrameMs: phases.firstFrameAtMs
             ))
-        case .fail:
+        case .fail(let reason):
+            failureReason = reason
             showRetry = true
         @unknown default:
+            failureReason = nil
             showRetry = true
         }
     }
@@ -98,6 +104,7 @@ struct CameraScreen: View {
         case .noObject: return "Point the camera at your dog's nose"
         case .processing, .detected: return "Hold still…"
         case .finished: return "Done"
+        // Live guidance: the reason the latest frames could not be used.
         case .failed(let reason): return Self.hint(for: reason)
         @unknown default: return "Hold still…"
         }

@@ -114,6 +114,16 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (!mounted || result == null) return;
+    if (!result.success) {
+      // Since 1.6.0 a failed capture says why on the result itself.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Capture failed: ${failureMessage(result.failureReason)}'),
+        ),
+      );
+      return;
+    }
     // 5. The result holds local file paths: `fingerprintImages` are the nose
     //    prints, `appearanceImages` the matching face frames. They live in the
     //    app's cache directory, so upload them (through your backend) before

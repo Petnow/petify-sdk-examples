@@ -4,8 +4,10 @@ import {
   CameraView,
   type CameraPerformanceStats,
   type CameraResult,
+  type DetectionFailureReason,
   type DetectionStatus,
   type PetnowCamera,
+  type PetnowCameraError,
 } from '@petify/react-native-camera-ui';
 
 import type {Purpose, Session} from '../api';
@@ -40,18 +42,19 @@ export function CameraScreen({
   const [status, setStatus] = useState<DetectionStatus | null>(null);
   const [progress, setProgress] = useState(0);
   const [detectionReady, setDetectionReady] = useState(false);
-  const [captureFailed, setCaptureFailed] = useState(false);
-  const engineReused = useRef(false);
-
   /**
-   * A setup failure — a refused key, a missing permission, a camera that would
-   * not open — rather than a frame the SDK rejected. It arrives as
-   * `'Unexpected'`, with the native message on `rawReason`.
+   * The failed capture's reason. Since 1.6.0 it comes on the result
+   * (`failureReason`), not on `onDetectionStatus`, which is live guidance only.
+   * `null` while the capture has not failed.
    */
-  const setupError =
-    status?.type === 'failed' && status.reason === 'Unexpected'
-      ? status.rawReason || REASON_MESSAGES.Unexpected
-      : null;
+  const [failure, setFailure] = useState<DetectionFailureReason | 'unknown' | null>(null);
+  /**
+   * What stopped the camera from running at all — a refused key, an
+   * unreachable licence server, a missing permission, a camera that would not
+   * open. Since 1.6.0 it arrives on `onError`, not as a `failed` status.
+   */
+  const [setupError, setSetupError] = useState<PetnowCameraError | null>(null);
+  const engineReused = useRef(false);
 
   const onPerformanceStats = (stats: CameraPerformanceStats) => {
     if (stats.detectionReadyAtMs != null && !detectionReady) {
@@ -68,7 +71,7 @@ export function CameraScreen({
 
   const onDetectionFinished = (result: CameraResult) => {
     if (!result.success) {
-      setCaptureFailed(true);
+      setFailure(result.failureReason ?? 'unknown');
       return;
     }
     onCaptured({
@@ -81,7 +84,7 @@ export function CameraScreen({
   // ③ Retry on the open camera: startDetection() starts a fresh capture on the
   //    same view and session. No images were uploaded, so the session is unused.
   const tryAgain = () => {
-    setCaptureFailed(false);
+    setFailure(null);
     setStatus(null);
     setProgress(0);
     camera.startDetection();
@@ -101,6 +104,7 @@ export function CameraScreen({
       case 'finished':
         return 'Done';
       case 'failed':
+        // Live guidance: the reason the latest frames could not be used.
         return REASON_MESSAGES[status.reason] ?? 'Please try again.';
       default:
         return "Point the camera at your dog's nose";
@@ -120,6 +124,7 @@ export function CameraScreen({
         onDetectionProgress={setProgress}
         onPerformanceStats={onPerformanceStats}
         onDetectionFinished={onDetectionFinished}
+        onError={setSetupError}
       />
 
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
@@ -135,11 +140,14 @@ export function CameraScreen({
           {setupError ? (
             <>
               <Text style={styles.panelTitle}>Camera could not start</Text>
-              <Text style={styles.error}>{setupError}</Text>
+              <Text style={styles.error}>{SETUP_ERROR_MESSAGES[setupError.code]}</Text>
             </>
-          ) : captureFailed ? (
+          ) : failure ? (
             <>
               <Text style={styles.panelTitle}>Capture failed</Text>
+              <Text style={styles.hint}>
+                {failure === 'unknown' ? 'Please try again.' : REASON_MESSAGES[failure]}
+              </Text>
               <Button label="Try again" onPress={tryAgain} />
               <Button label="Leave" secondary onPress={onClose} />
             </>
@@ -156,6 +164,21 @@ export function CameraScreen({
     </View>
   );
 }
+
+/**
+ * What to tell the user when the camera cannot start. `error.message` is for
+ * logs and support, not for users; branch on `error.code`.
+ */
+const SETUP_ERROR_MESSAGES: Record<PetnowCameraError['code'], string> = {
+  notInitialized: 'The app is not set up yet. Please try again.',
+  invalidConfig: 'Something is wrong with this capture. Please start again.',
+  permissionDenied: 'Allow camera access in Settings to scan a nose print.',
+  invalidLicense: 'This app cannot use the camera right now. Please contact support.',
+  network: 'Could not reach the server. Check your connection and try again.',
+  cameraUnavailable: 'The camera could not be opened. Close other camera apps and try again.',
+  multipleApiKeys: 'Please restart the app and try again.',
+  unknown: 'The camera could not start. Please try again.',
+};
 
 const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: '#000000'},
@@ -178,6 +201,7 @@ const styles = StyleSheet.create({
   },
   panelTitle: {fontSize: 17, fontWeight: '600', textAlign: 'center', color: colors.ink},
   error: {fontSize: 14, textAlign: 'center', color: colors.error},
+  hint: {fontSize: 15, textAlign: 'center', color: colors.ink},
   track: {height: 6, borderRadius: 3, backgroundColor: '#E0E0E0', overflow: 'hidden'},
   bar: {height: 6, backgroundColor: colors.main},
 });

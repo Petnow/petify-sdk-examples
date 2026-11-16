@@ -7,7 +7,7 @@ Home → capture guide (**prewarm**) → camera → result, using the Petify Rea
 | --- | --- |
 | `screens/HomeScreen.tsx` | Identify / Register, and in server mode the **Pets** list: tap a pet to verify it |
 | `screens/GuideScreen.tsx` | ① `PetnowPrewarm.start()` when the guide appears; gets the capture session |
-| `screens/CameraScreen.tsx` | `<CameraView>`, ② "Getting ready…" until `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry on the open camera with `startDetection()`, ⑤ `engineReused` (also logged to the Metro console) |
+| `screens/CameraScreen.tsx` | `<CameraView>`, ② "Getting ready…" until `onPerformanceStats` reports `detectionReadyAtMs`, ③ retry on the open camera with `startDetection()` showing `failureReason`, `onError` codes, ⑤ `engineReused` (also logged to the Metro console) |
 | `App.tsx` | ④ `PetnowPrewarm.release()` when the user is back on Home; camera permission; pausing in the background |
 | `screens/ResultScreen.tsx` | the captured images; in server mode, sends them to the example server to register, verify or identify |
 | `api.ts` | every network call: the camera-only session, and the example server's API |

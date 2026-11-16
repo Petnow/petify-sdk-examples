@@ -84,7 +84,9 @@ class _CameraScreenState extends State<CameraScreen>
     // A late callback, after the user closed the camera, opens nothing.
     if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
     if (!result.success) {
-      _offerRetry();
+      // Since 1.6.0 the failed capture's reason is on the result, not on
+      // onDetectionStatus.
+      _offerRetry(result.failureReason);
       return;
     }
     // ⑤ engineReused: the engine was already built when the camera started —
@@ -106,12 +108,13 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  Future<void> _offerRetry() async {
+  Future<void> _offerRetry(DetectionFailureReason? reason) async {
     final again = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Capture failed'),
+        content: Text(failureMessage(reason)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

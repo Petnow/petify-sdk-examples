@@ -10,7 +10,7 @@ guide describes.
 | File | What it shows |
 | --- | --- |
 | `GuideScreen.kt` | ① `CameraController.prewarm(context, license)` when the guide appears |
-| `CameraScreen.kt` | `CameraView` in `AndroidView`, ② guidance after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
+| `CameraScreen.kt` | `CameraView` in `AndroidView`, ② guidance after `phases.detectionReadyAtMs`, ③ retry with `startDetection()` showing `CameraResult.Fail.reason`, ⑤ `phases.engineReused` |
 | `MainActivity.kt` | ④ `CameraController.releasePrewarmed()` when the back stack returns home; the result replaces the used-up camera |
 | `HomeScreen.kt` | Identify / Register, and in server mode the **Pets** list: tap a pet to verify it |
 | `CaptureSession.kt` | creates the capture session: Petify directly in camera-only mode, the example server in server mode |

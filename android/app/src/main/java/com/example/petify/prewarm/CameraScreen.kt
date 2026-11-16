@@ -68,7 +68,8 @@ fun CameraScreen(
     val state by controller.state.collectAsState()
     val stats by controller.performanceStats.collectAsState()
     var status by remember { mutableStateOf<DetectionStatus>(DetectionStatus.NoObject) }
-    var showRetry by remember { mutableStateOf(false) }
+    // The failed session's reason. Since 1.6.0 it arrives on the result, not on the status stream.
+    var failure by remember { mutableStateOf<DetectionFailureReason?>(null) }
     var startError by remember { mutableStateOf<String?>(null) }
     var permissionDenied by remember { mutableStateOf(false) }
 
@@ -110,7 +111,7 @@ fun CameraScreen(
                             ),
                         )
                     }
-                    CameraResult.Fail -> showRetry = true
+                    is CameraResult.Fail -> failure = result.reason
                 }
             }
         })
@@ -178,14 +179,15 @@ fun CameraScreen(
         }
     }
 
-    if (showRetry) {
+    failure?.let { reason ->
         AlertDialog(
             onDismissRequest = {},
             title = { Text("Capture failed") },
+            text = { Text(hintFor(reason)) },
             confirmButton = {
                 // ③ Retry with startDetection(): the camera stays open, so there is no second start.
                 TextButton(onClick = {
-                    showRetry = false
+                    failure = null
                     controller.startDetection().onFailure { startError = it.message ?: it.toString() }
                 }) { Text("Try again") }
             },
@@ -224,15 +226,18 @@ private fun guidanceFor(status: DetectionStatus): String = when (status) {
     DetectionStatus.NoObject -> "Point the camera at your dog's nose"
     DetectionStatus.Processing, DetectionStatus.Detected -> "Hold still…"
     DetectionStatus.Finished -> "Done"
-    is DetectionStatus.Failed -> when (status.reason) {
-        DetectionFailureReason.TooClose -> "Move a little farther away"
-        DetectionFailureReason.TooFarAway -> "Move a little closer"
-        DetectionFailureReason.TooDark -> "Find a brighter spot"
-        DetectionFailureReason.TooBright, DetectionFailureReason.GlareDetected -> "Avoid direct light on the nose"
-        DetectionFailureReason.TooBlurred,
-        DetectionFailureReason.MotionBlurDetected,
-        DetectionFailureReason.DefocusedBlurDetected -> "Hold the phone still"
-        DetectionFailureReason.ShadowDetected -> "Avoid shadows on the nose"
-        else -> "Point the camera straight at the nose"
-    }
+    // Live guidance: the reason the latest frames could not be used.
+    is DetectionStatus.Failed -> hintFor(status.reason)
+}
+
+private fun hintFor(reason: DetectionFailureReason): String = when (reason) {
+    DetectionFailureReason.TooClose -> "Move a little farther away"
+    DetectionFailureReason.TooFarAway -> "Move a little closer"
+    DetectionFailureReason.TooDark -> "Find a brighter spot"
+    DetectionFailureReason.TooBright, DetectionFailureReason.GlareDetected -> "Avoid direct light on the nose"
+    DetectionFailureReason.TooBlurred,
+    DetectionFailureReason.MotionBlurDetected,
+    DetectionFailureReason.DefocusedBlurDetected -> "Hold the phone still"
+    DetectionFailureReason.ShadowDetected -> "Avoid shadows on the nose"
+    else -> "Point the camera straight at the nose"
 }

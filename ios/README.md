@@ -11,7 +11,7 @@ guide describes.
 | --- | --- |
 | `PrewarmExample/HomeScreen.swift` | Identify / Register, and in server mode the **Pets** list (tap a pet to verify it) |
 | `PrewarmExample/GuideScreen.swift` | ① `CameraController.prewarm(licenseInfo:)` in `onAppear` |
-| `PrewarmExample/CameraScreen.swift` | ② guidance from `detectionStatus` after `phases.detectionReadyAtMs`, ③ retry with `startDetection()`, ⑤ `phases.engineReused` |
+| `PrewarmExample/CameraScreen.swift` | ② guidance from `detectionStatus` after `phases.detectionReadyAtMs`, ③ retry with `startDetection()` showing `.fail(reason:)`, ⑤ `phases.engineReused` |
 | `PrewarmExample/PrewarmExampleApp.swift` | ④ `CameraController.releasePrewarmed()` when the navigation path returns home |
 | `PrewarmExample/CaptureSession.swift` | what the user picked (identify, register, verify a pet) and the capture session: Petify directly in camera-only mode, the example server in server mode |
 | `PrewarmExample/DemoCaptureSessions.swift` | camera-only mode: an identification session with the Client key — **example only**, your server does this |

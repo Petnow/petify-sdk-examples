@@ -49,12 +49,15 @@ String guidanceFor(DetectionStatus? status, {bool isCat = false}) {
     DetectionProcessing() => 'Scanning…',
     DetectionDetected() => 'Hold still',
     DetectionFinished() => 'Done',
-    // Setup problems (bad config, denied permission, license) arrive as
-    // `unexpected` and carry the native message in rawReason — surface it while
-    // developing, and replace it with your own copy in production.
-    DetectionFailed(:final reason, :final rawReason) =>
-      reason == DetectionFailureReason.unexpected && rawReason != null
-          ? rawReason
-          : kFailureMessages[reason] ?? 'Please try again',
+    // Live guidance: the reason the latest frames could not be used. Since
+    // 1.6.0 setup problems (a refused key, no permission) do not come here —
+    // they arrive on PetnowCameraView.onError — and a failed capture's reason
+    // is on CameraResult.failureReason.
+    DetectionFailed(:final reason) => failureMessage(reason),
   };
 }
+
+/// What to tell the user for [reason]: one frame's guidance, or a failed
+/// capture's [CameraResult.failureReason].
+String failureMessage(DetectionFailureReason? reason) =>
+    kFailureMessages[reason] ?? 'Please try again';

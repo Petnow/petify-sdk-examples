@@ -46,7 +46,9 @@ be before the models are ready. Drive your guidance from the detection status, a
 `performanceStats.phases.detectionReadyAtMs` as the moment detection begins.
 
 **③ Retry with `startDetection()`.** After a failed capture the camera is still open; start detection
-again instead of reopening the screen.
+again instead of reopening the screen. Since 1.6.0 the failed capture says why on its result (iOS
+`.fail(reason:)`, Android `CameraResult.Fail(reason)`, React Native and Flutter `failureReason`); the
+detection status is live guidance only. The examples show that reason in the retry dialog.
 
 **④ Release when the user leaves the flow.** `releasePrewarmed()` frees the prepared models. Call it when
 the user goes back to where the flow started — not when the guide screen disappears, which also happens
