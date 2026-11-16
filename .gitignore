@@ -14,6 +14,8 @@ react-native/.env
 react-native/package-lock.json
 react-native/ios/Podfile.lock
 ios/PrewarmExample.xcworkspace/xcshareddata/swiftpm/Package.resolved
+flutter/pubspec.lock
+flutter/ios/Podfile.lock
 
 # Build output and caches
 .DS_Store
