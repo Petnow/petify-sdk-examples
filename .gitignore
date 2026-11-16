@@ -9,6 +9,12 @@ react-native/.env
 **/xcshareddata/swiftpm/configuration/registries.json
 **/.swiftpm/configuration/registries.json
 
+# Generated lockfiles. The npm one records CodeArtifact URLs (account ID, domain,
+# region); the others are generated per machine with it. See README "Security notes".
+react-native/package-lock.json
+react-native/ios/Podfile.lock
+ios/PrewarmExample.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
 # Build output and caches
 .DS_Store
 build/
@@ -24,3 +30,4 @@ node_modules/
 Pods/
 vendor/bundle/
 *.jsbundle
+server/.env

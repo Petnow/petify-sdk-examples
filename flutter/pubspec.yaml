@@ -1,0 +1,24 @@
+name: petnow_camera_ui_example
+description: "Official example for petnow_camera_ui (Petify SDK for Flutter)."
+publish_to: none
+version: 1.6.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # The plugin: unzip petnow-flutter-1.6.0.zip into vendor/ (README step 2).
+  petnow_camera_ui:
+    path: vendor/petnow-flutter-1.6.0
+  permission_handler: ^11.3.1
+  # Capture sessions, and the optional example server. 1.6 exports MediaType.
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

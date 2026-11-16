@@ -1,0 +1,15 @@
+{
+  "name": "petify-sdk-example-server",
+  "version": "1.6.0",
+  "private": true,
+  "description": "Development example server that holds the Petify Secret key for the example apps",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  }
+}
