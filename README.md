@@ -159,8 +159,9 @@ server mode is a real pet in your account.** The server tags the pets it creates
   authentication and HTTPS.
 - Generated lockfiles are git-ignored too. `react-native/package-lock.json` records the CodeArtifact
   URLs it resolved from, which contain your AWS account ID, domain and region;
-  `react-native/ios/Podfile.lock` and the iOS workspace's `Package.resolved` are left to your machine
-  along with it. Commit your own only if your policy allows registry URLs in the repository.
+  `react-native/ios/Podfile.lock`, the iOS workspace's `Package.resolved`, and Flutter's
+  `pubspec.lock` and `ios/Podfile.lock` are left to your machine along with it. Commit your own
+  only if your policy allows registry URLs in the repository.
 - The examples compile the API key into the app for convenience. Anyone with the app binary can read it
   back out. See [API key security](https://docs.petnow.io/petify/docs/sdk/ios/getting-started#api-key-security) in the docs
   before you ship.
