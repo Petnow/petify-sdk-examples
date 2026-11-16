@@ -124,7 +124,11 @@ export function CameraScreen({
         onDetectionProgress={setProgress}
         onPerformanceStats={onPerformanceStats}
         onDetectionFinished={onDetectionFinished}
-        onError={setSetupError}
+        onError={(error) => {
+          // `message` is for logs and support; the panel shows text per `code`.
+          console.warn(`[Petify] camera could not start: ${error.code}: ${error.message}`);
+          setSetupError(error);
+        }}
       />
 
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
